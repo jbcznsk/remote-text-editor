@@ -1,10 +1,11 @@
 #include "funcs.h"
+#include "utils.h"
 
 /* cd <diretorio> - troca de diretorio no servidor */
 void
 cd(char *diretorio)
 {
-
+    chdir(diretorio);
 }
 
 /* lcd <diretorio> - troca de diretorio no cliente */
@@ -15,10 +16,14 @@ lcd(char *diretorio)
 }
 
 /* lista os arquivos do diretorio corrente no servidor */
-void 
-ls()
+void
+ls(pacote_t *pacote, int *qtdPacotes)
 {
-   
+   struct dirent *d;
+	DIR *dh = opendir(".");
+    
+	while ((d = readdir(dh)) != NULL)
+		printf("%s  \n", d->d_name);
 
 }
 

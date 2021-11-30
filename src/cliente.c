@@ -2,29 +2,45 @@
 #include "funcs.h"
 
 
+
+
+
+
 int
 main()
 {
+    int sequencializacao = 0;
     int soquete;
     struct sockaddr_ll endereco;
 
     configuraInicio(&soquete, &endereco);
 
-    char dados[100] = "1234567890123456789";
+    // --- Loop começa aqui?
 
-    padding(dados);
-    
-    int a = sendto(soquete, dados, 100, 0,(struct sockaddr*)&endereco, sizeof(struct sockaddr_ll));
 
-    fprintf(stderr, "%d", a);
 
-    char b[4] = "opa";
+    // Ler o comando do terminal
+    // fazer o(s) pacote(s)
+    // enviar
+    // tratar ack/nack
 
-    perror(b);
 
-    lls();
+    char dados2[15] = "..";
+    pacote_t pacote;
+    pacote = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR,2,sequencializacao,CD,dados2,calculaParidade(pacote));
+    imprimePacote(pacote);
+    int tamanhoEnvio = enviaPacote(pacote, soquete, endereco);
+    fprintf(stdout, "Tamanho envio: %d bytes\n", tamanhoEnvio);
 
-    compilar("test.c");
+    // if (/*ACK*/){
+    //     sequencializacao++;
+    // }
+
+    perror("status");
+
+    // lls();
+
+    // compilar("test.c");
 
     return 0;
 }

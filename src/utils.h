@@ -43,9 +43,35 @@
 #define ERR_AI 3
 #define ERR_LI 4
 
+// tamanho : 19 bytes + 81
+typedef struct pacote_s{
+    char MI;
+    char EdEoTam;
+    char SeqTipo;
+    char dados[15];
+    char paridade;
+    
+    // Apenas para consistência na hora da comunicação
+    char pad[81];
+} pacote_t;
+
 
 void configuraInicio(int *soquete, struct sockaddr_ll *endereco);
 void padding(char *dados);
+void printByte(char c);
+void printBits(char c, int ini, int fim);
+void imprimePacote(pacote_t pacote);
+
+char getTamanhoPacote(pacote_t pacote);
+char getSequenciaPacote(pacote_t pacote);
+char getTipoPacote(pacote_t pacote);
+
+
+char calculaParidade(pacote_t pacote);
+
+int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco);
+
+pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char tamanho, char sequencia, char tipo, char dados[15], char paridade);
 
 
 #endif

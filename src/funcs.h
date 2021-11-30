@@ -5,8 +5,11 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <errno.h>
+#include<unistd.h>
 
-void ls();
-void cd();
+void  ls();
+void lls();
+void  cd(char *diretorio);
+void lcd(char *diretorio);
 
 #endif

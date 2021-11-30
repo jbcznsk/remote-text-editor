@@ -6,6 +6,9 @@
 #include <errno.h>
 #include <stdlib.h>
 
+
+#include<unistd.h> 
+
 void _ls(const char *dir,int op_a,int op_l)
 {
 	//Here we will list the directory
@@ -37,31 +40,39 @@ void _ls(const char *dir,int op_a,int op_l)
 	if(!op_l)
 	printf("\n");
 }
+
+
 int main(int argc, const char *argv[])
 {
-	if (argc == 1)
-	{
-		_ls(".",0,0);
-	}
-	else if (argc == 2)
-	{
-		if (argv[1][0] == '-')
-		{
-			//Checking if option is passed
-			//Options supporting: a, l
-			int op_a = 0, op_l = 0;
-			char *p = (char*)(argv[1] + 1);
-			while(*p){
-				if(*p == 'a') op_a = 1;
-				else if(*p == 'l') op_l = 1;
-				else{
-					perror("Option not available");
-					exit(EXIT_FAILURE);
-				}
-				p++;
-			}
-			_ls(".",op_a,op_l);
-		}
-	}
+	// if (argc == 1)
+	// {
+	// 	_ls(".",0,0);
+	// }
+	// else if (argc == 2)
+	// {
+	// 	if (argv[1][0] == '-')
+	// 	{
+	// 		//Checking if option is passed
+	// 		//Options supporting: a, l
+	// 		int op_a = 0, op_l = 0;
+	// 		char *p = (char*)(argv[1] + 1);
+	// 		while(*p){
+	// 			if(*p == 'a') op_a = 1;
+	// 			else if(*p == 'l') op_l = 1;
+	// 			else{
+	// 				perror("Option not available");
+	// 				exit(EXIT_FAILURE);
+	// 			}
+	// 			p++;
+	// 		}
+	// 		_ls(".",op_a,op_l);
+	// 	}
+	// }
+
+	chdir("..");
+	chdir("..");
+	_ls(".",0,0);
+
+
 	return 0;
 }
