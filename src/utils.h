@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <netinet/in.h>
+#include <sys/time.h>
 
 #define INIT_MARK 0b01111110
 
@@ -43,7 +44,7 @@
 #define ERR_AI 3
 #define ERR_LI 4
 
-// tamanho : 19 bytes + 81
+// tamanho : 19 bytes + 81 = 100 bytes por pacote
 typedef struct pacote_s{
     char MI;
     char EdEoTam;
@@ -65,13 +66,26 @@ void imprimePacote(pacote_t pacote);
 char getTamanhoPacote(pacote_t pacote);
 char getSequenciaPacote(pacote_t pacote);
 char getTipoPacote(pacote_t pacote);
+char getEnderecoOrigem(pacote_t pacote);
+char getEnderecoDestino(pacote_t pacote);
 
 
 char calculaParidade(pacote_t pacote);
+int confereParidade(pacote_t pacote);
 
 int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco);
+pacote_t lerPacote(int soquete, struct sockaddr_ll endereco);
 
-pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char tamanho, char sequencia, char tipo, char dados[15], char paridade);
+pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char tamanho, char sequencia, char tipo, char dados[15]);
+
+void  enviarACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequencializacao);
+void enviarNACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequencializacao);
+void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, char erro);
+
+int tamanhoString(char *string);
+void aumentaSequencia(int *sequencia);
+int validarSequencializacao(pacote_t pacote, int sequencializacao);
+
 
 
 #endif

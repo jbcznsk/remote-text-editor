@@ -7,9 +7,10 @@
 #include <errno.h>
 #include<unistd.h>
 
-void  ls();
+char*  ls();
 void lls();
-void  cd(char *diretorio);
-void lcd(char *diretorio);
+
+int  cd(char *diretorio);
+int lcd(char *diretorio);
 
 #endif
