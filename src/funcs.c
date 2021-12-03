@@ -73,7 +73,7 @@ ver(char *arquivo)
 void 
 linha(int linha, char *arquivo)
 {
-
+    
 }
 
 /* linhas <inicio> <fim> <arquivo> - mostra as linhas entre o inicio e o fim*/

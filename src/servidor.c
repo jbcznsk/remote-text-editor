@@ -1,164 +1,214 @@
 #include "utils.h"
 #include "funcs.h"
 
-int validarLeituraServidor(pacote_t pacote)
+#define DEBUG
+
+int getIntDados(pacote_t pacote, int deslocamento)
 {
-    return ((getEnderecoDestino(pacote) == SERVER_ADDR) && (getEnderecoOrigem(pacote) == CLIENT_ADDR));
+    int indice = 4*deslocamento;
+    int inteiro;
+
+    inteiro  = pacote.dados[indice+0] <<  24;
+    inteiro |= pacote.dados[indice+1] <<  16;
+    inteiro |= pacote.dados[indice+2] <<   8;
+    inteiro |= pacote.dados[indice+3] <<   0;
+
+    return inteiro;
+}
+
+void 
+lsServidor(int soquete, int *sequencializacao)
+{
+    int tamanhoConteudo, tamanhoRestante, tamanhoAtual, qtdPacotes, contadorPacotes, seq;
+    char *conteudo;
+    pacote_t pacoteEnvio;
+
+    conteudo = ls();
+    puts(conteudo);
+    seq = *sequencializacao;
+    tamanhoConteudo = tamanhoString(conteudo);
+    printf("Tamanho Conteudo: %d\n", tamanhoConteudo);
+    tamanhoRestante = tamanhoConteudo;
+    qtdPacotes = (tamanhoConteudo / 15) + ((tamanhoConteudo % 15) ? 1 : 0);
+    contadorPacotes = 0;
+
+    printf("¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨\n");
+    printf("Quantidade Pacotes: %d\n", qtdPacotes);
+    printf("¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨\n");
+
+    while (contadorPacotes < qtdPacotes)
+    {
+
+        // montar o pacote
+        if (tamanhoConteudo > 15)
+        {
+            tamanhoAtual = 15;
+            tamanhoConteudo -= 15;
+        }
+        else
+        {
+            tamanhoAtual = tamanhoConteudo;
+        }
+
+        char *mensagemAtual = (char *)malloc(sizeof(char) * tamanhoAtual);
+        for (int i = 0; i < tamanhoAtual; i++)
+            mensagemAtual[i] = conteudo[contadorPacotes * 15 + i];
+
+        pacoteEnvio = empacota(INIT_MARK,
+                               CLIENT_ADDR,
+                               SERVER_ADDR,
+                               tamanhoAtual,
+                               seq,
+                               CLS,
+                               mensagemAtual);
+
+        // enviar a mensagem
+        struct sockaddr_ll endereco;
+        enviaPacote(pacoteEnvio, soquete, endereco);
+        aumentaSequencia(&seq);
+
+        // esperar o ACK ou NACK
+        pacote_t pacoteRecebido;
+        do
+        {
+            pacoteRecebido = lerPacote(soquete, endereco);
+            imprimePacote(pacoteRecebido);
+        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+#ifdef DEBUG
+        printf("<<< RECEBENDO PACOTE <<<\n");
+        // imprimePacote(pacote);
+        printf("=======================\n");
+#endif
+
+        if (getTipoPacote(pacoteRecebido) == ACK){
+        // -> ACK  = contador++
+            puts("ACK!");
+            contadorPacotes++;
+        } else {
+        // -> NACK = reenvia o mesmo pacote;
+            puts("NACK!");
+            tamanhoRestante += 15;
+        }
+
+        free(mensagemAtual);
+        printf("¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨\n");
+        printf("Contador Pacotes: %d\n", contadorPacotes);
+        printf("¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨\n");
+    }
+
+    // enviar Fim de Transmissao
+    pacoteEnvio = empacota(INIT_MARK,
+                               CLIENT_ADDR,
+                               SERVER_ADDR,
+                               0,
+                               seq,
+                               FIM_TRANS,
+                               NULL);
+
+        // enviar a mensagem
+        struct sockaddr_ll endereco;
+        enviaPacote(pacoteEnvio, soquete, endereco);
+
+    *sequencializacao = seq;
+    free(conteudo);
+}
+
+void 
+linhaServidor(int soquete, int *sequencializacao, pacote_t pacote)
+{
+    int seq = *sequencializacao;
+    struct sockaddr_ll endereco;
+    char *nomeArquivo = getDadosPacote(pacote);
+
+    enviarACKParaCliente(soquete, endereco, seq);
+    aumentaSequencia(&seq);
+
+    pacote_t pacoteRecebido;
+    do
+    {
+        pacoteRecebido = lerPacote(soquete, endereco);
+        imprimePacote(pacoteRecebido);
+    } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+
+    int linha = getIntDados(pacote, 0);
+
+    // rodar o sed com o nome e a linha em um arquivo
+    // abrir esse arquivo
+    // ler a linha
+    // pegar o tamanho da linha <<< a partir daqui acho que ja fica igual o LS
+    // calcular a quantidade de pacotes
+    // ...
+
+    
+    // enviar Fim de Transmissao
+    pacoteEnvio = empacota(INIT_MARK,
+                               CLIENT_ADDR,
+                               SERVER_ADDR,
+                               0,
+                               seq,
+                               FIM_TRANS,
+                               NULL);
+
+    // enviar a mensagem
+    enviaPacote(pacoteEnvio, soquete, endereco);
+    free(nomeArquivo);
+    *sequencializacao = seq;
 }
 
 int main()
 {
-    int soquete;
-    struct sockaddr_ll endereco;
-
-    int tamanhoEndereco;
-    int mensagensRecebidas;
     pacote_t pacote;
-
-    configuraInicio(&soquete, &endereco);
-    tamanhoEndereco = sizeof(endereco);
-    mensagensRecebidas = 0;
-
     int sequencializacao = 0;
 
-    while ((999 - 273 + 4 * 3) != (739))
+    int soquete;
+    struct sockaddr_ll endereco;
+    configuraInicio(&soquete, &endereco);
+
+    // Apenas para desenvolvimento
+    int a = 0;
+
+    // --------------- //
+
+    while (1)
     {
-        pacote = lerPacote(soquete, endereco);
-        // imprimePacote(pacote);
-
-        if (validarLeituraServidor(pacote) /*&& getSequenciaPacote(pacote) > sequencializacao /*&& validarSequencializacao(pacote, sequencializacao)*/)
+        // Aqui eu sempre vou ter um pacote válido (falta a paridade mas fodase)
+        int a = 0;
+        do
         {
-            if (!confereParidade(pacote))
-            {
-                printf("Erro na paridade\n");
-                enviarNACKParaCliente(soquete, endereco, sequencializacao);
-            }
-            else
-            {
-                // printf("Mensagens recebidas: %d\n", mensagensRecebidas);
-                // perror("status");
+            printf("---> %d\n", a++);
+            pacote = lerPacote(soquete, endereco);
+            imprimePacote(pacote);
+        } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, sequencializacao)));
 
-                int tipo = getTipoPacote(pacote);
-                char buff[100];
+#ifdef DEBUG
+        printf("<<< RECEBENDO PACOTE <<<\n");
+        // imprimePacote(pacote);
+        printf("=======================\n");
+#endif
 
-                switch (tipo)
-                {
-                case CD:
-                    printf("===== Comando: CD ===== \n");
-                    printf("Diretorio atual: %s\n", getcwd(buff, 100));
-                    int tamanho = getTamanhoPacote(pacote);
-                    char *dir = (char *)malloc(sizeof(char) * tamanho);
-                    for (int i = 0; i < tamanho; i++)
-                        dir[i] = pacote.dados[i];
+        switch (getTipoPacote(pacote))
+        {
+        case CD:
+            printf("===== Comando: CD ===== \n");
+            enviarACKParaCliente(soquete, endereco, sequencializacao);
+            break;
 
-                    int retorno = cd(dir);
-                    free(dir);
-                    if (retorno != 0)
-                    {
-                        enviarErroParaCLiente(soquete, endereco, sequencializacao, retorno + '0');
-                    }
-                    else
-                    {
-                        printf("Diretorio atual: %s\n", getcwd(buff, 100));
-                        printf("======================= \n");
-                        enviarACKParaCliente(soquete, endereco, sequencializacao);
-                        aumentaSequencia(&sequencializacao);
-                    }
-                    break;
+        case LS:
+            printf("===== Comando: LS ===== \n");
+            lsServidor(soquete, &sequencializacao);
+            printf("=====   FIM  : LS ===== \n");
+            break;
 
-                case LS:
-                    printf("===== Comando: LS ===== \n");
-                    char *retornoLS = ls();
-                    // int tamanhoMensagem = sizeof(retornoLS);
-                    int tamanhoMensagem = tamanhoString(retornoLS);
+        case LINHA:
+            printf("===== Comando: LINHA ===== \n");
+            // linhaServidor();
+            printf("=====   FIM  : LINHA ===== \n");
+            break;
 
-                    int qtdPacotes = (tamanhoMensagem / 15) + 1;
-                    int tamanhoRestante = tamanhoMensagem;
-                    int tamanhoMensagemAtual;
-
-                    printf("RetornoLS : \n%s \nTamahoMensagem: %d\nQuantidadePacotes: %d\n\n", retornoLS, tamanhoMensagem, qtdPacotes);
-
-                    int i = 0;
-                    while ( i < qtdPacotes+1)
-                    {
-
-                        if (tamanhoRestante > 15)
-                        {
-                            tamanhoMensagemAtual = 15;
-                            tamanhoRestante -= 15;
-                        }
-                        else
-                        {
-                            tamanhoMensagemAtual = tamanhoRestante;
-                        }
-
-                        char *mensagemAtual = malloc(tamanhoMensagemAtual);
-                        for (int j = 0; j < tamanhoMensagemAtual; j++)
-                            mensagemAtual[j] = retornoLS[i * 15 + j];
-
-                        char tipo = (i == qtdPacotes) ? FIM_TRANS : CLS;
-
-                        pacote_t pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, tamanhoMensagemAtual, sequencializacao, tipo, mensagemAtual);
-                        enviaPacote(pacoteEnvio, soquete, endereco);
-                        sleep(3);
-                        aumentaSequencia(&sequencializacao);
-
-                        // pacote_t pacoteRetorno = lerPacote(soquete, endereco);
-                        // if (validarLeituraServidor(pacoteRetorno) && getSequenciaPacote(pacoteRetorno) == sequencializacao)
-                        // {
-                        //     if (getTipoPacote(pacoteRetorno) != ACK)
-                        //     {
-                        //         printf(">>>>>>>>>>>>Deu merda<<<<<<<<<<<<<\n");
-                        //     }
-                        // }
-
-                        free(mensagemAtual);
-                        i++;
-                    }
-
-                    // tipofree(retornoLS);
-                    printf("======================= \n");
-                    break;
-
-                case VER:
-                    break;
-
-                case LINHA:
-                    break;
-
-                case LINHAS:
-                    break;
-
-                case EDIT:
-                    break;
-
-                case COMPILAR:
-                    break;
-
-                case ACK:
-                    break;
-
-                case NACK:
-                    break;
-
-                case FIM_TRANS:
-                    break;
-
-                case ND_1:
-                    break;
-
-                case ERRO:
-                    break;
-
-                default:
-                    break;
-                }
-            }
-
-            // }
-        } else {
-            puts("!!! Ignorando Pacote !!! ");
+        default:
+            break;
         }
     }
+
     return 0;
 }

@@ -68,6 +68,7 @@ char getSequenciaPacote(pacote_t pacote);
 char getTipoPacote(pacote_t pacote);
 char getEnderecoOrigem(pacote_t pacote);
 char getEnderecoDestino(pacote_t pacote);
+char *getDadosPacote(pacote_t pacote);
 
 
 char calculaParidade(pacote_t pacote);
@@ -85,6 +86,9 @@ void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequenc
 int tamanhoString(char *string);
 void aumentaSequencia(int *sequencia);
 int validarSequencializacao(pacote_t pacote, int sequencializacao);
+
+int validarLeituraCliente(pacote_t pacote);
+int validarLeituraServidor(pacote_t pacote);
 
 
 

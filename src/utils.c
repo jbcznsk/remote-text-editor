@@ -1,4 +1,5 @@
 #include "utils.h"
+
 #define DEBUG
 
 void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
@@ -126,6 +127,14 @@ char getEnderecoOrigem(pacote_t pacote)
     return (pacote.EdEoTam & 0b00110000) >> 4;
 }
 
+char *getDadosPacote(pacote_t pacote)
+{
+    char *dados = malloc (getTamanhoPacote(pacote));
+    for (int i = 0; i < getTamanhoPacote(pacote); i++)
+        dados[i] = pacote.dados[i];
+    return dados;
+}
+
 char calculaParidade(pacote_t pacote)
 {
     char tamanho   = getTamanhoPacote(pacote);
@@ -198,7 +207,7 @@ pacote_t lerPacote(int soquete, struct sockaddr_ll endereco)
     // int tamanhoEndereco = sizeof(endereco);
     // recvfrom(soquete, &pacote, 100, 0, (struct sockaddr *)&endereco, &tamanhoEndereco);
     recv(soquete, &pacote, 100, 0);
-    #ifdef DEBUG
+    #ifdef DEBUG_1
         printf("<<< RECEBENDO PACOTE <<<\n");
         imprimePacote(pacote);
         printf("=======================\n");
@@ -248,3 +257,15 @@ void aumentaSequencia(int *sequencia){
 int validarSequencializacao(pacote_t pacote, int sequencializacao){
     return  getSequenciaPacote(pacote) == sequencializacao;
 }
+
+int validarLeituraCliente(pacote_t pacote)
+{
+    return ((getEnderecoOrigem(pacote) == SERVER_ADDR) && (getEnderecoDestino(pacote) == CLIENT_ADDR));
+}
+
+int validarLeituraServidor(pacote_t pacote)
+{
+    return ((getEnderecoDestino(pacote) == SERVER_ADDR) && (getEnderecoOrigem(pacote) == CLIENT_ADDR));
+}
+
+
