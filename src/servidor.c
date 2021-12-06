@@ -17,6 +17,7 @@ void cdServidor(int soquete, int *sequencializacao, pacote_t pacote)
     free(dir);
     if (retorno != 0)
     {
+        printf("ERRO: %d\n", retorno);
         enviarErroParaCLiente(soquete, endereco, *sequencializacao, retorno + '0');
     }
     else
@@ -370,6 +371,7 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
     // enviar a mensagem
     enviaPacote(pacoteEnvio, soquete, endereco);
     free(nomeArquivo);
+    aumentaSequencia(&seq);
     *sequencializacao = seq;
     system("rm linha");
 }
@@ -556,14 +558,14 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
     if (nrLinha > nrDeLinhas + 1) // erro de linha invalida
     {
-        puts ("LINHA INVALIDA");
+        puts("LINHA INVALIDA");
         enviarErroParaCLiente(soquete, endereco, seq, ERR_LI);
     }
     else if (nrLinha == nrDeLinhas + 1) // append no final do arquivo
     {
         puts("APPENDS");
         char comando[100];
-        sprintf(comando, "sed -i '%d a\\%s' %s", nrLinha-1, novaLinha, nomeArquivo);
+        sprintf(comando, "sed -i '%d a\\%s' %s", nrLinha - 1, novaLinha, nomeArquivo);
         system(comando);
     }
     else // substitui a linha
@@ -578,8 +580,145 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
     free(nomeArquivo);
 }
 
-void compilarServidor()
+void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
+    int seq = *sequencializacao;
+    struct sockaddr_ll endereco;
+    char *nomeArquivo = getDadosPacote(pacote);
+    int tamanhoConteudo, tamanhoRestante, tamanhoAtual, qtdPacotes, contadorPacotes;
+    pacote_t pacoteEnvio, pacoteRecebido;
+
+    char *novaLinha = malloc(1);
+    int tamanhoNovaLinha = 0;
+
+    enviarACKParaCliente(soquete, endereco, seq);
+    aumentaSequencia(&seq);
+
+    printf("Arquivo que vai ser compilado :%s\n", nomeArquivo);
+
+    do
+    {
+        pacoteRecebido = lerPacote(soquete, endereco);
+        imprimePacote(pacoteRecebido);
+
+        if (validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq) && getTipoPacote(pacoteRecebido) == CA)
+        {
+            int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
+
+            novaLinha = realloc(novaLinha, tamanhoNovaLinha + tamanhoRetorno);
+
+            for (int i = 0; i < tamanhoRetorno; i++)
+            {
+                novaLinha[tamanhoNovaLinha + i] = pacoteRecebido.dados[i];
+            }
+            tamanhoNovaLinha += tamanhoRetorno;
+
+            aumentaSequencia(&seq);
+            enviarACKParaServidor(soquete, endereco, seq);
+        }
+    } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
+
+    char comando[200];
+    sprintf(comando, "gcc %s %s 2>&1 | cat > retornoCompilar", novaLinha, nomeArquivo);
+    system(comando);
+
+    // Enviar o retorno para o cliente
+
+    char *conteudo;
+    long tamanhoArquivo;
+    FILE *ARQUIVO = fopen("retornoCompilar", "rb");
+
+    if (ARQUIVO)
+    {
+        fseek(ARQUIVO, 0, SEEK_END);
+        tamanhoArquivo = ftell(ARQUIVO);
+        fseek(ARQUIVO, 0, SEEK_SET);
+        conteudo = malloc(tamanhoArquivo);
+        if (conteudo)
+        {
+            fread(conteudo, 1, tamanhoArquivo, ARQUIVO);
+        }
+        fclose(ARQUIVO);
+    }
+
+    puts(conteudo);
+
+    contadorPacotes = 0;
+    tamanhoRestante = tamanhoArquivo;
+    qtdPacotes = (tamanhoArquivo / 15) + ((tamanhoArquivo % 15) ? 1 : 0);
+
+    while (contadorPacotes < qtdPacotes)
+    {
+
+        if (tamanhoRestante > 15)
+        {
+            tamanhoAtual = 15;
+            tamanhoRestante -= 15;
+        }
+        else
+        {
+            tamanhoAtual = tamanhoRestante;
+        }
+
+        char *conteudoAtual = malloc(tamanhoAtual);
+
+        for (int i = 0; i < tamanhoAtual; i++)
+        {
+            conteudoAtual[i] = conteudo[contadorPacotes * 15 + i];
+        }
+
+        pacoteEnvio = empacota(INIT_MARK,
+                               CLIENT_ADDR,
+                               SERVER_ADDR,
+                               tamanhoAtual,
+                               seq,
+                               CA,
+                               conteudoAtual);
+
+        struct sockaddr_ll endereco;
+        enviaPacote(pacoteEnvio, soquete, endereco);
+        aumentaSequencia(&seq);
+
+        do
+        {
+            pacoteRecebido = lerPacote(soquete, endereco);
+            imprimePacote(pacoteRecebido);
+        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+#ifdef DEBUG
+        printf("<<< RECEBENDO PACOTE <<<\n");
+        // imprimePacote(pacote);
+        printf("=======================\n");
+#endif
+
+        if (getTipoPacote(pacoteRecebido) == ACK)
+        {
+            // -> ACK  = contador++
+            puts("ACK!");
+            contadorPacotes++;
+        }
+        else
+        {
+            // -> NACK = reenvia o mesmo pacote;
+            puts("NACK!");
+            tamanhoRestante += 15;
+        }
+    }
+
+    pacoteEnvio = empacota(INIT_MARK,
+                           CLIENT_ADDR,
+                           SERVER_ADDR,
+                           0,
+                           seq,
+                           FIM_TRANS,
+                           NULL);
+
+    // enviar a mensagem
+    enviaPacote(pacoteEnvio, soquete, endereco);
+
+    system("rm retornoCompilar");
+
+    *sequencializacao = seq;
+    free(nomeArquivo);
 }
 
 int main()
@@ -596,6 +735,7 @@ int main()
 
     while (1)
     {
+        printf("sequencia atual: %d\n", sequencializacao);
         // Aqui eu sempre vou ter um pacote válido (falta a paridade mas fodase)
         do
         {
@@ -640,6 +780,13 @@ int main()
             printf("===== Comando: EDITAR ===== \n");
             editarServidor(soquete, &sequencializacao, pacote);
             printf("=====   FIM  : EDITAR ===== \n");
+            printf("******* SEQ ATUAL : %d\n", sequencializacao);
+            break;
+
+        case COMPILAR:
+            printf("===== Comando: COMPILAR ===== \n");
+            compilarServidor(soquete, &sequencializacao, pacote);
+            printf("=====   FIM  : COMPILAR ===== \n");
             printf("******* SEQ ATUAL : %d\n", sequencializacao);
             break;
 

@@ -184,11 +184,11 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
 
 int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco)
 {   
-    // #ifdef DEBUG
-    //     printf(">>> ENVIANDO PACOTE >>>\n");
-    //     imprimePacote(pacote);
-    //     printf("=======================\n");
-    // #endif
+    #ifdef DEBUG
+        printf(">>> ENVIANDO PACOTE >>>\n");
+        imprimePacote(pacote);
+        printf("=======================\n");
+    #endif
 
     return send(soquete, &pacote, 100, 0);
     //return sendto(soquete, &pacote, 100, 0, (struct sockaddr *)&endereco, sizeof(struct sockaddr_ll));
@@ -258,7 +258,7 @@ int tamanhoString(char *string){
 
 void aumentaSequencia(int *sequencia){
     *sequencia = (*sequencia + 1) % 16;
-    printf("Seq atual: %d\n", *sequencia);
+    // printf("Seq atual: %d\n", *sequencia);
 }
 
 int validarSequencializacao(pacote_t pacote, int sequencializacao){
