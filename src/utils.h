@@ -9,6 +9,7 @@
 #include <linux/if.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include <sys/time.h>
@@ -81,7 +82,12 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
 
 void  enviarACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequencializacao);
 void enviarNACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequencializacao);
-void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, char erro);
+void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, int erro);
+
+
+void enviarACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao);
+
+
 
 int tamanhoString(char *string);
 void aumentaSequencia(int *sequencia);
@@ -89,6 +95,8 @@ int validarSequencializacao(pacote_t pacote, int sequencializacao);
 
 int validarLeituraCliente(pacote_t pacote);
 int validarLeituraServidor(pacote_t pacote);
+
+int getIntDados(pacote_t pacote, int deslocamento);
 
 
 

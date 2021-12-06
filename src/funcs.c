@@ -43,20 +43,21 @@ lls()
 
 /* lista os arquivos do diretorio corrente no servidor */
 char*
-ls(){
+ls()
+{
     int tamanho = 0;
     char *retorno = malloc(1);
     strcpy(retorno, "");
     struct dirent *d;
 	DIR *dh = opendir(".");
-    
+
 	while ((d = readdir(dh)) != NULL){
-        tamanho += tamanhoString(d->d_name)+1;
+        tamanho += tamanhoString(d->d_name)+2;
         retorno = realloc(retorno, tamanho);
         strcat(retorno,d->d_name);
         strcat(retorno,"\n");
     }
-    // printf("%s", retorno);
+    closedir(dh);
     return retorno;
 }
 

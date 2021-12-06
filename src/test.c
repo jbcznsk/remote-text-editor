@@ -5,6 +5,10 @@
 //For EXIT codes and error handling
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+
+
 
 
 #include<unistd.h> 
@@ -44,34 +48,25 @@ void _ls(const char *dir,int op_a,int op_l)
 
 int main(int argc, const char *argv[])
 {
-	// if (argc == 1)
-	// {
-	// 	_ls(".",0,0);
-	// }
-	// else if (argc == 2)
-	// {
-	// 	if (argv[1][0] == '-')
-	// 	{
-	// 		//Checking if option is passed
-	// 		//Options supporting: a, l
-	// 		int op_a = 0, op_l = 0;
-	// 		char *p = (char*)(argv[1] + 1);
-	// 		while(*p){
-	// 			if(*p == 'a') op_a = 1;
-	// 			else if(*p == 'l') op_l = 1;
-	// 			else{
-	// 				perror("Option not available");
-	// 				exit(EXIT_FAILURE);
-	// 			}
-	// 			p++;
-	// 		}
-	// 		_ls(".",op_a,op_l);
-	// 	}
-	// }
 
-	chdir("..");
-	chdir("..");
-	_ls(".",0,0);
+	char *entrada = malloc(100);
+
+	fgets(entrada,100, stdin);
+
+	printf("tamanho: %ld\n", strlen(entrada));
+
+	char str[] = "strtok needs to be called several times to split a string";
+	int init_size = strlen(entrada);
+	char delim[] = " ";
+
+	char *ptr = strtok(entrada, delim);
+
+	while(ptr != NULL)
+	{
+		printf("'%s'\n", ptr);
+		ptr = strtok(NULL, delim);
+	}
+
 
 
 	return 0;

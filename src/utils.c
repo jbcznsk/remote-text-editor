@@ -151,12 +151,6 @@ char calculaParidade(pacote_t pacote)
 
 int confereParidade(pacote_t pacote)
 {
-
-    // printf("Paridade Recebida: ");
-    // printByte(pacote.paridade);
-    // printf("Paridade Calculada: ");
-    // printByte(calculaParidade(pacote));
-
     return (calculaParidade(pacote) == pacote.paridade);
 }
 
@@ -190,13 +184,12 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
 
 int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco)
 {   
-    #ifdef DEBUG
-        printf(">>> ENVIANDO PACOTE >>>\n");
-        imprimePacote(pacote);
-        printf("=======================\n");
-    #endif
+    // #ifdef DEBUG
+    //     printf(">>> ENVIANDO PACOTE >>>\n");
+    //     imprimePacote(pacote);
+    //     printf("=======================\n");
+    // #endif
 
-    // printf("soquete: %d\n", soquete);
     return send(soquete, &pacote, 100, 0);
     //return sendto(soquete, &pacote, 100, 0, (struct sockaddr *)&endereco, sizeof(struct sockaddr_ll));
 }
@@ -229,10 +222,24 @@ void enviarNACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequenc
     enviaPacote(pacote, soquete, endereco);
 }
 
-void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, char erro){
+void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, int erro){
     pacote_t pacote;
-    char dados[1] = {erro};
-    pacote = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 1, sequencializacao, ERRO, dados);
+    char dados[4] = {erro};
+
+    dados[0] = erro << 24;
+    dados[1] = erro << 16;
+    dados[2] = erro <<  8;
+    dados[3] = erro      ;
+
+    pacote = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 4, sequencializacao, ERRO, dados);
+    enviaPacote(pacote, soquete, endereco);
+}
+
+void enviarACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao)
+{
+    pacote_t pacote;
+    char dados[15] = "oi jorge";
+    pacote = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 0, sequencializacao, ACK, dados);
     enviaPacote(pacote, soquete, endereco);
 }
 
@@ -269,3 +276,15 @@ int validarLeituraServidor(pacote_t pacote)
 }
 
 
+int getIntDados(pacote_t pacote, int deslocamento)
+{
+    int indice = 4 * deslocamento;
+    int inteiro;
+
+    inteiro = pacote.dados[indice + 0] << 24;
+    inteiro |= pacote.dados[indice + 1] << 16;
+    inteiro |= pacote.dados[indice + 2] << 8;
+    inteiro |= pacote.dados[indice + 3] << 0;
+
+    return inteiro;
+}
