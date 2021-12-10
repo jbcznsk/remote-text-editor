@@ -1,12 +1,13 @@
 primeira linha
 linha 2 nova
-a linha 3 é muito legal�
+a linha 3 é muito legal
 olha minha linha 4
 sera que funciona?
+
 linha 6
 linha 7
 linha 10 do tikara
 linha 9
-nova linha 10
+nova linha 10 do tikara
 linha11 - a nova linha
 adicionando a linha 12 com o poder da mente

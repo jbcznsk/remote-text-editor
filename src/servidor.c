@@ -265,7 +265,6 @@ void linhaServidor(int soquete, int *sequencializacao, pacote_t pacote)
     system("rm linha");
 }
 
-
 void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
     int seq = *sequencializacao;
@@ -406,130 +405,6 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
     *sequencializacao = seq;
     system("rm linha");
 }
-
-
-// void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
-// {
-//     int seq = *sequencializacao;
-//     struct sockaddr_ll endereco;
-//     char *nomeArquivo = getDadosPacote(pacote);
-//     int tamanhoRestante, tamanhoAtual, qtdPacotes, contadorPacotes;
-//     pacote_t pacoteEnvio;
-
-//     printf("Nome do arquivo que vai ser lido: %s\n", nomeArquivo);
-
-//     enviarACKParaCliente(soquete, endereco, seq);
-//     aumentaSequencia(&seq);
-
-//     pacote_t pacoteRecebido;
-//     do
-//     {
-//         pacoteRecebido = lerPacote(soquete, endereco);
-//         imprimePacote(pacoteRecebido);
-//     } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-
-//     int linhaInicial = getIntDados(pacoteRecebido, 0);
-//     int linhaFinal = getIntDados(pacoteRecebido, 1);
-//     printf("NR das linhas = %d até %d\n", linhaInicial, linhaFinal);
-//     char comando[100];
-//     sprintf(comando, "sed -n %d,%dp %s > linha", linhaInicial, linhaFinal, nomeArquivo);
-//     system(comando);
-
-//     char *conteudoLinha;
-//     long tamanhoLinha;
-//     FILE *L = fopen("linha", "rb");
-
-//     if (L)
-//     {
-//         fseek(L, 0, SEEK_END);
-//         tamanhoLinha = ftell(L);
-//         fseek(L, 0, SEEK_SET);
-//         conteudoLinha = malloc(tamanhoLinha);
-//         if (conteudoLinha)
-//         {
-//             fread(conteudoLinha, 1, tamanhoLinha, L);
-//         }
-//         fclose(L);
-//     }
-
-//     puts(conteudoLinha);
-
-//     contadorPacotes = 0;
-//     tamanhoRestante = tamanhoLinha;
-//     qtdPacotes = (tamanhoLinha / 15) + ((tamanhoLinha % 15) ? 1 : 0);
-
-//     while (contadorPacotes < qtdPacotes)
-//     {
-
-//         if (tamanhoRestante > 15)
-//         {
-//             tamanhoAtual = 15;
-//             tamanhoRestante -= 15;
-//         }
-//         else
-//         {
-//             tamanhoAtual = tamanhoRestante;
-//         }
-
-//         char *linhaAtual = malloc(tamanhoAtual);
-
-//         for (int i = 0; i < tamanhoAtual; i++)
-//         {
-//             linhaAtual[i] = conteudoLinha[contadorPacotes * 15 + i];
-//         }
-
-//         pacoteEnvio = empacota(INIT_MARK,
-//                                CLIENT_ADDR,
-//                                SERVER_ADDR,
-//                                tamanhoAtual,
-//                                seq,
-//                                CA,
-//                                linhaAtual);
-
-//         struct sockaddr_ll endereco;
-//         enviaPacote(pacoteEnvio, soquete, endereco);
-//         aumentaSequencia(&seq);
-
-//         do
-//         {
-//             pacoteRecebido = lerPacote(soquete, endereco);
-//             imprimePacote(pacoteRecebido);
-//         } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-// #ifdef DEBUG
-//         printf("<<< RECEBENDO PACOTE <<<\n");
-//         // imprimePacote(pacote);
-//         printf("=======================\n");
-// #endif
-
-//         if (getTipoPacote(pacoteRecebido) == ACK)
-//         {
-//             // -> ACK  = contador++
-//             puts("ACK!");
-//             contadorPacotes++;
-//         }
-//         else
-//         {
-//             // -> NACK = reenvia o mesmo pacote;
-//             puts("NACK!");
-//             tamanhoRestante += 15;
-//         }
-//     }
-
-//     pacoteEnvio = empacota(INIT_MARK,
-//                            CLIENT_ADDR,
-//                            SERVER_ADDR,
-//                            0,
-//                            seq,
-//                            FIM_TRANS,
-//                            NULL);
-
-//     // enviar a mensagem
-//     enviaPacote(pacoteEnvio, soquete, endereco);
-//     free(nomeArquivo);
-//     aumentaSequencia(&seq);
-//     *sequencializacao = seq;
-//     system("rm linha");
-// }
 
 void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
