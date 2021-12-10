@@ -3,6 +3,28 @@
 
 // #define DEBUG
 
+void lancarErro(int tipoErro)
+{
+    switch (tipoErro)
+    {
+    case ERR_AP:
+        printf("ERRO: Você não tem permissão para executar essa ação\n");
+        break;
+
+    case ERR_DI:
+        printf("ERRO: O diretório enviado não existe\n");
+        break;
+
+    case ERR_AI:
+        printf("ERRO: O arquivo alvo não existe\n");
+        break;
+
+    case ERR_LI:
+        printf("ERRO: A linha alvo não existe\n");
+        break;
+    }
+}
+
 void cdCliente(int soquete, int *sequencializacao, char *diretorio)
 {
     pacote_t pacoteEnvio, pacoteRecebido;
@@ -24,13 +46,25 @@ void cdCliente(int soquete, int *sequencializacao, char *diretorio)
         pacoteRecebido = lerPacote(soquete, endereco);
     } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
+    imprimePacote(pacoteRecebido);
+
     if (getTipoPacote(pacoteRecebido) == ACK)
     {
         aumentaSequencia(&seq);
     }
     else if (getTipoPacote(pacoteRecebido) == NACK)
     {
-        cdCliente(soquete, sequencializacao, diretorio);
+        // envia o comando novamente
+        aumentaSequencia(&seq);
+        cdCliente(soquete, &seq, diretorio);
+    }
+    else if (getTipoPacote(pacoteRecebido) == ERRO)
+    {
+        puts("ERRO!");
+        int tipoErro = getIntDados(pacoteRecebido, 0);
+        printf("tipo: %d\n", tipoErro);
+        lancarErro(tipoErro);
+        aumentaSequencia(&seq);
     }
 
     *sequencializacao = seq;
@@ -60,28 +94,33 @@ void lsCliente(int soquete, int *sequencializacao)
         {
             pacoteRecebido = lerPacote(soquete, endereco);
         } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-        // printf("<<< RECEBENDO PACOTE <<<\n");
-        // imprimePacote(pacoteRecebido);
+        printf("<<< RECEBENDO PACOTE <<<\n");
+        imprimePacote(pacoteRecebido);
 
         if (getTipoPacote(pacoteRecebido) == CLS)
         {
             aumentaSequencia(&seq);
 
-            int tamanhoDados = getTamanhoPacote(pacoteRecebido);
-            retornoLS = realloc(retornoLS, tamanhoLS + tamanhoDados);
-            for (int i = 0; i < tamanhoDados; i++)
-                retornoLS[tamanhoLS + i] = pacoteRecebido.dados[i];
+            if (confereParidade(pacoteRecebido))
+            {
+                int tamanhoDados = getTamanhoPacote(pacoteRecebido);
+                retornoLS = realloc(retornoLS, tamanhoLS + tamanhoDados);
+                for (int i = 0; i < tamanhoDados; i++)
+                    retornoLS[tamanhoLS + i] = pacoteRecebido.dados[i];
 
-            tamanhoLS += tamanhoDados;
+                tamanhoLS += tamanhoDados;
 
-            enviarACKParaServidor(soquete, endereco, seq);
+                enviarACKParaServidor(soquete, endereco, seq);
+            }
+            else
+            {
+                enviarNACKParaServidor(soquete, endereco, seq);
+            }
         }
 
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
     retornoLS = realloc(retornoLS, tamanhoLS + 1);
     retornoLS[tamanhoLS] = '\0';
-
-
 
     puts(retornoLS);
 
@@ -91,25 +130,16 @@ void lsCliente(int soquete, int *sequencializacao)
 
 void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha)
 {
-
     pacote_t pacoteEnvio, pacoteRecebido;
+    struct sockaddr_ll endereco;
     int seq = *sequencializacao;
     char *retornoLinha = malloc(1);
     int tamanhoLinha = 0;
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           SERVER_ADDR,
-                           CLIENT_ADDR,
-                           tamanhoString(arquivo),
-                           seq,
-                           LINHA,
-                           arquivo);
-
-    struct sockaddr_ll endereco;
+    pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(arquivo), seq, LINHA, arquivo);
     enviaPacote(pacoteEnvio, soquete, endereco);
 
-    do
-    {
+    do {
         pacoteRecebido = lerPacote(soquete, endereco);
     } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
@@ -121,62 +151,73 @@ void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha
         for (int i = 0; i < 4; i++)
             dados[i] = nrLinha >> (24 - 8 * i);
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               SERVER_ADDR,
-                               CLIENT_ADDR,
-                               4,
-                               seq,
-                               LIF,
-                               dados);
+        do
+        {
+            pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 4, seq, LIF, dados);
+            enviaPacote(pacoteEnvio, soquete, endereco);
 
-        enviaPacote(pacoteEnvio, soquete, endereco);
+            do {
+                pacoteRecebido = lerPacote(soquete, endereco);
+            } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+            imprimePacote(pacoteRecebido);
+            aumentaSequencia(&seq);
+        } while (getTipoPacote(pacoteRecebido) == NACK);
 
         do
         {
-            do
+            if (getTipoPacote(pacoteRecebido) == CA)
             {
+                int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
+
+                retornoLinha = realloc(retornoLinha, tamanhoLinha + tamanhoRetorno);
+
+                for (int i = 0; i < tamanhoRetorno; i++)
+                    retornoLinha[tamanhoLinha + i] = pacoteRecebido.dados[i];
+
+                tamanhoLinha += tamanhoRetorno;
+
+                enviarACKParaServidor(soquete, endereco, seq);
+            }
+
+            do{
                 pacoteRecebido = lerPacote(soquete, endereco);
             } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
-            int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
-
-            retornoLinha = realloc(retornoLinha, tamanhoLinha + tamanhoRetorno);
-
-            for (int i = 0; i < tamanhoRetorno; i++)
-                retornoLinha[tamanhoLinha + i] = pacoteRecebido.dados[i];
-
-            tamanhoLinha += tamanhoRetorno;
-
             aumentaSequencia(&seq);
-            enviarACKParaServidor(soquete, endereco, seq);
 
         } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
+
         puts(retornoLinha);
     }
+    else if (getTipoPacote(pacoteRecebido) == NACK)
+    {
+        aumentaSequencia(&seq);
+        linhaCliente(soquete, &seq, arquivo, nrLinha);
+    }
+    else if (getTipoPacote(pacoteRecebido) == ERRO)
+    {
+        int tipoErro = getIntDados(pacoteRecebido, 0);
+        lancarErro(tipoErro);
+        aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    }
+
     *sequencializacao = seq;
 }
 
 void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaInicial, int linhaFinal)
 {
-
     pacote_t pacoteEnvio, pacoteRecebido;
+    struct sockaddr_ll endereco;
     int seq = *sequencializacao;
     char *retornoLinha = malloc(1);
     int tamanhoLinha = 0;
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           SERVER_ADDR,
-                           CLIENT_ADDR,
-                           tamanhoString(arquivo),
-                           seq,
-                           LINHAS,
-                           arquivo);
-
-    struct sockaddr_ll endereco;
+    pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(arquivo), seq, LINHAS, arquivo);
     enviaPacote(pacoteEnvio, soquete, endereco);
 
-    do
-    {
+    do {
         pacoteRecebido = lerPacote(soquete, endereco);
     } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
@@ -185,49 +226,138 @@ void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaI
         aumentaSequencia(&seq);
 
         char dados[8];
-
         for (int i = 0; i < 4; i++)
             dados[i] = linhaInicial >> (24 - 8 * i);
-
         for (int i = 0; i < 4; i++)
             dados[i + 4] = linhaFinal >> (24 - 8 * i);
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               SERVER_ADDR,
-                               CLIENT_ADDR,
-                               8,
-                               seq,
-                               LIF,
-                               dados);
+        do
+        {
+            pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 8, seq, LIF, dados);
+            enviaPacote(pacoteEnvio, soquete, endereco);
 
-        enviaPacote(pacoteEnvio, soquete, endereco);
+            do {
+                pacoteRecebido = lerPacote(soquete, endereco);
+            } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+            imprimePacote(pacoteRecebido);
+            aumentaSequencia(&seq);
+        } while (getTipoPacote(pacoteRecebido) == NACK);
 
         do
         {
-            do
+            if (getTipoPacote(pacoteRecebido) == CA)
             {
+                int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
+
+                retornoLinha = realloc(retornoLinha, tamanhoLinha + tamanhoRetorno);
+
+                for (int i = 0; i < tamanhoRetorno; i++)
+                    retornoLinha[tamanhoLinha + i] = pacoteRecebido.dados[i];
+
+                tamanhoLinha += tamanhoRetorno;
+
+                enviarACKParaServidor(soquete, endereco, seq);
+            }
+
+            do{
                 pacoteRecebido = lerPacote(soquete, endereco);
             } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
-            int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
-
-            retornoLinha = realloc(retornoLinha, tamanhoLinha + tamanhoRetorno);
-
-            for (int i = 0; i < tamanhoRetorno; i++)
-                retornoLinha[tamanhoLinha + i] = pacoteRecebido.dados[i];
-
-            tamanhoLinha += tamanhoRetorno;
-
             aumentaSequencia(&seq);
-            enviarACKParaServidor(soquete, endereco, seq);
 
         } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
 
         puts(retornoLinha);
     }
+    else if (getTipoPacote(pacoteRecebido) == NACK)
+    {
+        aumentaSequencia(&seq);
+        linhasCliente(soquete, &seq, arquivo, linhaInicial, linhaFinal);
+    }
+    else if (getTipoPacote(pacoteRecebido) == ERRO)
+    {
+        int tipoErro = getIntDados(pacoteRecebido, 0);
+        lancarErro(tipoErro);
+        aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    }
 
     *sequencializacao = seq;
 }
+
+// void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaInicial, int linhaFinal)
+// {
+
+//     pacote_t pacoteEnvio, pacoteRecebido;
+//     int seq = *sequencializacao;
+//     char *retornoLinha = malloc(1);
+//     int tamanhoLinha = 0;
+
+//     pacoteEnvio = empacota(INIT_MARK,
+//                            SERVER_ADDR,
+//                            CLIENT_ADDR,
+//                            tamanhoString(arquivo),
+//                            seq,
+//                            LINHAS,
+//                            arquivo);
+
+//     struct sockaddr_ll endereco;
+//     enviaPacote(pacoteEnvio, soquete, endereco);
+
+//     do
+//     {
+//         pacoteRecebido = lerPacote(soquete, endereco);
+//     } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+
+//     if (getTipoPacote(pacoteRecebido) == ACK)
+//     {
+//         aumentaSequencia(&seq);
+
+//         char dados[8];
+
+//         for (int i = 0; i < 4; i++)
+//             dados[i] = linhaInicial >> (24 - 8 * i);
+
+//         for (int i = 0; i < 4; i++)
+//             dados[i + 4] = linhaFinal >> (24 - 8 * i);
+
+//         pacoteEnvio = empacota(INIT_MARK,
+//                                SERVER_ADDR,
+//                                CLIENT_ADDR,
+//                                8,
+//                                seq,
+//                                LIF,
+//                                dados);
+
+//         enviaPacote(pacoteEnvio, soquete, endereco);
+
+//         do
+//         {
+//             do
+//             {
+//                 pacoteRecebido = lerPacote(soquete, endereco);
+//             } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+
+//             int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
+
+//             retornoLinha = realloc(retornoLinha, tamanhoLinha + tamanhoRetorno);
+
+//             for (int i = 0; i < tamanhoRetorno; i++)
+//                 retornoLinha[tamanhoLinha + i] = pacoteRecebido.dados[i];
+
+//             tamanhoLinha += tamanhoRetorno;
+
+//             aumentaSequencia(&seq);
+//             enviarACKParaServidor(soquete, endereco, seq);
+
+//         } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
+
+//         puts(retornoLinha);
+//     }
+
+//     *sequencializacao = seq;
+// }
 
 void verCliente(int soquete, int *sequencializacao, char *arquivo)
 {
@@ -283,6 +413,7 @@ void verCliente(int soquete, int *sequencializacao, char *arquivo)
     printf("***** CONTEUDO VER:\n%s", retornoVer);
 
     free(retornoVer);
+    aumentaSequencia(&seq);
     *sequencializacao = seq;
 }
 
@@ -558,6 +689,7 @@ void compilarCliente(int soquete, int *sequencializacao, char *arquivo, char **a
     puts("FIM TRANSMISSAO");
     printf("***** RetornoCompilacao:\n%s", retornoVer);
 
+    aumentaSequencia(&seq);
     *sequencializacao = seq;
 }
 
@@ -607,9 +739,21 @@ int getComando(char *comando)
     {
         return COMPILAR;
     }
+    else if (!strcmp(comando, "lls"))
+    {
+        return LLS;
+    }
+    else if (!strcmp(comando, "lcd"))
+    {
+        return LCD;
+    }
     else if (!strcmp(comando, "seq"))
     {
-        return 999;
+        return VER_SEQ;
+    }
+    else if (!strcmp(comando, "clr"))
+    {
+        return CLR;
     }
     else
     {
@@ -696,9 +840,25 @@ int main()
             compilarCliente(soquete, &sequencializacao, arquivo, argumentos, nrArgumentos - 1);
             break;
 
-        case 999:
-            
+        case VER_SEQ:
             printf("sequencia atual: %d\n", sequencializacao);
+            break;
+
+        case LCD:
+            diretorio = strtok(NULL, delim);
+            printf("O diretorio é: %s\n", diretorio);
+            int retorno = cd(diretorio);
+            if (retorno)
+                lancarErro(retorno);
+            break;
+
+        case LLS:
+            printf("%s", ls());
+            break;
+
+        case CLR:
+            for (int i = 0; i < 100; i++)
+                putchar('\n');
             break;
 
         default:

@@ -17,6 +17,21 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
         exit(-1);
     }
 
+    struct timeval timeout;      
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+    
+    if (setsockopt (*soquete, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+                sizeof timeout) < 0)
+        perror("setsockopt failed\n");
+
+    if (setsockopt (*soquete, SOL_SOCKET, SO_SNDTIMEO, &timeout,
+                sizeof timeout) < 0)
+        perror("setsockopt failed\n");
+
+//     int timeout = 10000;  // user timeout in milliseconds [ms]
+// setsockopt (*soquete, 6, 18, (char*) &timeout, sizeof (timeout));
+
     /*dispositivo eth0*/
     memset(&ir, 0, sizeof(struct ifreq));
     // memcpy(ir.ifr_name, device, sizeof(device));
@@ -49,12 +64,6 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
     }
 }
 
-void padding(char *dados)
-{
-    for (int i = 19; i < 99; i++)
-        dados[i] = '0';
-    dados[99] = '\0';
-}
 
 void printByte(char c)
 {
@@ -238,8 +247,14 @@ void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequenc
 void enviarACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao)
 {
     pacote_t pacote;
-    char dados[15] = "oi jorge";
-    pacote = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 0, sequencializacao, ACK, dados);
+    pacote = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 0, sequencializacao, ACK, NULL);
+    enviaPacote(pacote, soquete, endereco);
+}
+
+void enviarNACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao)
+{
+    pacote_t pacote;
+    pacote = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 0, sequencializacao, NACK, NULL);
     enviaPacote(pacote, soquete, endereco);
 }
 
@@ -275,13 +290,12 @@ int validarLeituraServidor(pacote_t pacote)
     return ((getEnderecoDestino(pacote) == SERVER_ADDR) && (getEnderecoOrigem(pacote) == CLIENT_ADDR));
 }
 
-
 int getIntDados(pacote_t pacote, int deslocamento)
 {
     int indice = 4 * deslocamento;
     int inteiro;
 
-    inteiro = pacote.dados[indice + 0] << 24;
+    inteiro =  pacote.dados[indice + 0] << 24;
     inteiro |= pacote.dados[indice + 1] << 16;
     inteiro |= pacote.dados[indice + 2] << 8;
     inteiro |= pacote.dados[indice + 3] << 0;

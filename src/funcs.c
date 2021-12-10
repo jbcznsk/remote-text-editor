@@ -23,6 +23,17 @@ cd(char *diretorio)
 int
 lcd(char *diretorio)
 {
+    chdir(diretorio);
+
+    if (errno == EACCES ){                                 // Sem acesso
+        return 1;
+    } else if (errno == ENOENT  || errno == ENOTDIR){      // Inexistente
+        return 2;
+    } else if (errno == ELOOP  || errno == ENAMETOOLONG ){ // Outros
+        return 5;
+    }
+
+    return 0;
 }
 
 
@@ -38,7 +49,6 @@ lls()
 		printf("%s  \n", d->d_name);
 
 }
-
 
 
 /* lista os arquivos do diretorio corrente no servidor */

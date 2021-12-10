@@ -19,6 +19,9 @@
 #define SERVER_ADDR 0b10
 #define CLIENT_ADDR 0b01
 
+#define VER_SEQ 90
+#define CLR     91
+
 #define SEQ_SIZE 4 
 
 #define STD_MSG_SIZE 19
@@ -39,6 +42,9 @@
 #define FIM_TRANS 0b1101 // 13
 #define ND_1      0b1110 // 14
 #define ERRO      0b1111 // 15
+
+#define LCD       16
+#define LLS       17 
 
 #define ERR_AP 1
 #define ERR_DI 2
@@ -86,7 +92,7 @@ void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequenc
 
 
 void enviarACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao);
-
+void enviarNACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequencializacao);
 
 
 int tamanhoString(char *string);

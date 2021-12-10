@@ -1,7 +1,0 @@
-test.c: In function ‘main’:
-test.c:59:6: warning: unused variable ‘init_size’ [-Wunused-variable]
-   59 |  int init_size = strlen(entrada);
-      |      ^~~~~~~~~
-test.c:58:7: warning: unused variable ‘str’ [-Wunused-variable]
-   58 |  char str[] = "strtok needs to be called several times to split a string";
-      |       ^~~
