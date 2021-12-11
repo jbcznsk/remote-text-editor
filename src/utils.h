@@ -70,7 +70,7 @@ void printByte(char c);
 void printBits(char c, int ini, int fim);
 void imprimePacote(pacote_t pacote);
 
-char getTamanhoPacote(pacote_t pacote);
+int getTamanhoPacote(pacote_t pacote);
 char getSequenciaPacote(pacote_t pacote);
 char getTipoPacote(pacote_t pacote);
 char getEnderecoOrigem(pacote_t pacote);

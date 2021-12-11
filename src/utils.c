@@ -17,20 +17,20 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
         exit(-1);
     }
 
-    struct timeval timeout;      
+    struct timeval timeout;
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
-    
-    if (setsockopt (*soquete, SOL_SOCKET, SO_RCVTIMEO, &timeout,
-                sizeof timeout) < 0)
+
+    if (setsockopt(*soquete, SOL_SOCKET, SO_RCVTIMEO, &timeout,
+                   sizeof timeout) < 0)
         perror("setsockopt failed\n");
 
-    if (setsockopt (*soquete, SOL_SOCKET, SO_SNDTIMEO, &timeout,
-                sizeof timeout) < 0)
+    if (setsockopt(*soquete, SOL_SOCKET, SO_SNDTIMEO, &timeout,
+                   sizeof timeout) < 0)
         perror("setsockopt failed\n");
 
-//     int timeout = 10000;  // user timeout in milliseconds [ms]
-// setsockopt (*soquete, 6, 18, (char*) &timeout, sizeof (timeout));
+    //     int timeout = 10000;  // user timeout in milliseconds [ms]
+    // setsockopt (*soquete, 6, 18, (char*) &timeout, sizeof (timeout));
 
     /*dispositivo eth0*/
     memset(&ir, 0, sizeof(struct ifreq));
@@ -63,7 +63,6 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
         exit(-1);
     }
 }
-
 
 void printByte(char c)
 {
@@ -111,7 +110,7 @@ void imprimePacote(pacote_t pacote)
     printByte(pacote.paridade);
 }
 
-char getTamanhoPacote(pacote_t pacote)
+int getTamanhoPacote(pacote_t pacote)
 {
     return pacote.EdEoTam & 0b00001111;
 }
@@ -138,7 +137,7 @@ char getEnderecoOrigem(pacote_t pacote)
 
 char *getDadosPacote(pacote_t pacote)
 {
-    char *dados = malloc (getTamanhoPacote(pacote)+1);
+    char *dados = malloc(getTamanhoPacote(pacote) + 1);
     for (int i = 0; i < getTamanhoPacote(pacote); i++)
         dados[i] = pacote.dados[i];
     dados[getTamanhoPacote(pacote)] = '\0';
@@ -147,13 +146,14 @@ char *getDadosPacote(pacote_t pacote)
 
 char calculaParidade(pacote_t pacote)
 {
-    char tamanho   = getTamanhoPacote(pacote);
+    char tamanho = getTamanhoPacote(pacote);
     char sequencia = getSequenciaPacote(pacote);
-    char tipo      = getTipoPacote(pacote);
+    char tipo = getTipoPacote(pacote);
 
     char paridade = tamanho ^ sequencia ^ tipo;
 
-    for (int i = 0; i < tamanho; i++){
+    for (int i = 0; i < tamanho; i++)
+    {
         paridade ^= pacote.dados[i];
     }
     return paridade;
@@ -168,7 +168,8 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
 {
 
     pacote_t pacote;
-    for (int i = 0; i < 81; i++) pacote.pad[i] = '0';
+    for (int i = 0; i < 81; i++)
+        pacote.pad[i] = '0';
 
     pacote.MI = MI;
 
@@ -182,9 +183,10 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
     for (int i = 0; i < tamanho; i++)
         pacote.dados[i] = dados[i];
 
-    if (tamanho == 0){
+    if (tamanho == 0)
+    {
         for (int i = 0; i < tamanho; i++)
-        pacote.dados[i] = ' ';
+            pacote.dados[i] = ' ';
     }
 
     pacote.paridade = calculaParidade(pacote);
@@ -193,28 +195,18 @@ pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char taman
 }
 
 int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco)
-{   
-    #ifdef DEBUG
-        printf(">>> ENVIANDO PACOTE >>>\n");
-        imprimePacote(pacote);
-        printf("=======================\n");
-    #endif
+{
+    // printf(">>> ENVIANDO PACOTE >>>\n");
+    // imprimePacote(pacote);
+    // printf("=======================\n");
 
     return send(soquete, &pacote, 100, 0);
-    //return sendto(soquete, &pacote, 100, 0, (struct sockaddr *)&endereco, sizeof(struct sockaddr_ll));
 }
 
 pacote_t lerPacote(int soquete, struct sockaddr_ll endereco)
 {
     pacote_t pacote;
-    // int tamanhoEndereco = sizeof(endereco);
-    // recvfrom(soquete, &pacote, 100, 0, (struct sockaddr *)&endereco, &tamanhoEndereco);
     recv(soquete, &pacote, 100, 0);
-    #ifdef DEBUG_1
-        printf("<<< RECEBENDO PACOTE <<<\n");
-        imprimePacote(pacote);
-        printf("=======================\n");
-    #endif
     return pacote;
 }
 
@@ -232,14 +224,15 @@ void enviarNACKParaCliente(int soquete, struct sockaddr_ll endereco, int sequenc
     enviaPacote(pacote, soquete, endereco);
 }
 
-void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, int erro){
+void enviarErroParaCLiente(int soquete, struct sockaddr_ll endereco, int sequencializacao, int erro)
+{
     pacote_t pacote;
     char dados[4] = {erro};
 
     dados[0] = erro << 24;
     dados[1] = erro << 16;
-    dados[2] = erro <<  8;
-    dados[3] = erro      ;
+    dados[2] = erro << 8;
+    dados[3] = erro;
 
     pacote = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 4, sequencializacao, ERRO, dados);
     enviaPacote(pacote, soquete, endereco);
@@ -261,24 +254,28 @@ void enviarNACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequen
 
 double timestamp(void)
 {
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  return((double)(tp.tv_sec*1000.0 + tp.tv_usec/1000.0));
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    return ((double)(tp.tv_sec * 1000.0 + tp.tv_usec / 1000.0));
 }
 
-int tamanhoString(char *string){
+int tamanhoString(char *string)
+{
     int t = 0;
-    while(string[t++] != '\0');
-    return t-1;
+    while (string[t++] != '\0')
+        ;
+    return t - 1;
 }
 
-void aumentaSequencia(int *sequencia){
+void aumentaSequencia(int *sequencia)
+{
     *sequencia = (*sequencia + 1) % 16;
     // printf("Seq atual: %d\n", *sequencia);
 }
 
-int validarSequencializacao(pacote_t pacote, int sequencializacao){
-    return  getSequenciaPacote(pacote) == sequencializacao;
+int validarSequencializacao(pacote_t pacote, int sequencializacao)
+{
+    return getSequenciaPacote(pacote) == sequencializacao;
 }
 
 int validarLeituraCliente(pacote_t pacote)
@@ -296,7 +293,7 @@ int getIntDados(pacote_t pacote, int deslocamento)
     int indice = 4 * deslocamento;
     int inteiro;
 
-    inteiro =  pacote.dados[indice + 0] << 24;
+    inteiro = pacote.dados[indice + 0] << 24;
     inteiro |= pacote.dados[indice + 1] << 16;
     inteiro |= pacote.dados[indice + 2] << 8;
     inteiro |= pacote.dados[indice + 3] << 0;

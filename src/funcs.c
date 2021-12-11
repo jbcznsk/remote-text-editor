@@ -9,9 +9,7 @@ cd(char *diretorio)
 
     if (errno == EACCES ){                                 // Sem acesso
         return 1;
-    } else if (errno == ENOENT  || errno == ENOTDIR){      // Inexistente
-        return 2;
-    } else if (errno == ELOOP  || errno == ENAMETOOLONG ){ // Outros
+    }  else if (errno == ELOOP  || errno == ENAMETOOLONG ){ // Outros
         return 5;
     }
     
@@ -69,44 +67,4 @@ ls()
     }
     closedir(dh);
     return retorno;
-}
-
-/* ver <arquivo> - mostra o conteudo do arquivo fonte C do servidor na tela do cliente.
-As linhas devem ter numeracao */
-void
-ver(char *arquivo)
-{
-
-}
-
-/* linha <linha> <arquivo> - mostra a linha do arquivo */
-// usar o sed
-void 
-linha(int linha, char *arquivo)
-{
-    
-}
-
-/* linhas <inicio> <fim> <arquivo> - mostra as linhas entre o inicio e o fim*/
-void 
-linhas(int inicio, int fim, char *arquivo)
-{
-
-}
-
-/* edito <linha> <arquivo> "<texto>" 
-para add nova linha, botar ultima linha + 1*/
-void 
-edit(int linha, char *arquivo, char *texto)
-{ 
-
-}
-
-/* compilar <opcoes> <arquivo> */
-void
-compilar(/*?*/ char *arquivo)
-{
-    char comando[100];
-    sprintf(comando, "gcc %s", arquivo);
-    system(comando);
 }
