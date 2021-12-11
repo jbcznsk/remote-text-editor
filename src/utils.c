@@ -138,9 +138,10 @@ char getEnderecoOrigem(pacote_t pacote)
 
 char *getDadosPacote(pacote_t pacote)
 {
-    char *dados = malloc (getTamanhoPacote(pacote));
+    char *dados = malloc (getTamanhoPacote(pacote)+1);
     for (int i = 0; i < getTamanhoPacote(pacote); i++)
         dados[i] = pacote.dados[i];
+    dados[getTamanhoPacote(pacote)] = '\0';
     return dados;
 }
 

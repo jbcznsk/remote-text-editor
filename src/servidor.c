@@ -162,10 +162,11 @@ void linhaServidor(int soquete, int *sequencializacao, pacote_t pacote)
         imprimePacote(pacoteRecebido);
 
         valida = confereParidade(pacoteRecebido);
-        if (!valida){
+        if (!valida)
+        {
             enviarNACKParaCliente(soquete, endereco, seq);
             aumentaSequencia(&seq);
-        } 
+        }
 
     } while (!valida);
 
@@ -304,13 +305,14 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
         imprimePacote(pacoteRecebido);
 
         valida = confereParidade(pacoteRecebido);
-        if (!valida){
+        if (!valida)
+        {
             enviarNACKParaCliente(soquete, endereco, seq);
             aumentaSequencia(&seq);
-        } 
+        }
 
     } while (!valida);
-        
+
     int linhaInicial = getIntDados(pacoteRecebido, 0);
     int linhaFinal = getIntDados(pacoteRecebido, 1);
     printf("NR das linhas = %d até %d\n", linhaInicial, linhaFinal);
@@ -408,11 +410,40 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
 void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
+
     int seq = *sequencializacao;
     struct sockaddr_ll endereco;
     char *nomeArquivo = getDadosPacote(pacote);
     int tamanhoRestante, tamanhoAtual, qtdPacotes, contadorPacotes;
     pacote_t pacoteEnvio, pacoteRecebido;
+    aumentaSequencia(&seq);
+
+    puts(nomeArquivo);
+
+    if (!confereParidade(pacote))
+    {
+        do
+        {
+            enviarNACKParaCliente(soquete, endereco, seq);
+            do
+            {
+                pacote = lerPacote(soquete, endereco);
+            } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
+            aumentaSequencia(&seq);
+        } while (!confereParidade(pacote));
+    }
+
+    FILE *A = fopen(nomeArquivo, "rb");
+    if (!A)
+    {
+        puts("arquivo nao encontrado no servidor");
+        enviarErroParaCLiente(soquete, endereco, seq, ERR_AI);
+        aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    }
+    fclose(A);
+    puts("arquivo encontrado :___)");
 
     char comando[100];
     sprintf(comando, "cat -n %s | sed 's/^ *//g' > VER", nomeArquivo);
@@ -476,13 +507,10 @@ void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
         do
         {
             pacoteRecebido = lerPacote(soquete, endereco);
-            imprimePacote(pacoteRecebido);
         } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-#ifdef DEBUG
         printf("<<< RECEBENDO PACOTE <<<\n");
-        // imprimePacote(pacote);
+        imprimePacote(pacote);
         printf("=======================\n");
-#endif
 
         if (getTipoPacote(pacoteRecebido) == ACK)
         {
@@ -518,30 +546,85 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
     int seq = *sequencializacao;
     struct sockaddr_ll endereco;
-    char *nomeArquivo = getDadosPacote(pacote);
     int nrLinha;
+    int nrDeLinhas = 0;
     pacote_t pacoteRecebido;
-
     char *novaLinha = malloc(1);
     int tamanhoNovaLinha = 0;
+    char c;
+
+    if (!confereParidade(pacote))
+    {
+        do
+        {
+            enviarNACKParaCliente(soquete, endereco, seq);
+            aumentaSequencia(&seq);
+            do
+            {
+                pacote = lerPacote(soquete, endereco);
+            } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
+        } while (!confereParidade(pacote));
+    }
+
+    char *nomeArquivo = getDadosPacote(pacote);
+    FILE *A = fopen(nomeArquivo, "rb");
+    if (!A)
+    {
+        enviarErroParaCLiente(soquete, endereco, seq, ERR_AI);
+        aumentaSequencia(&seq);aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    }
+    else
+    {
+        do
+        {
+            c = getc(A);
+            putc(c, stdout);
+            if (c == '\n')
+                nrDeLinhas++;
+        } while (c != EOF);
+    }
+    fclose(A);
 
     enviarACKParaCliente(soquete, endereco, seq);
     aumentaSequencia(&seq);
 
     printf("Arquivo que vai ser editado :%s\n", nomeArquivo);
 
+    // Recebe o pacote com a linha
     do
     {
-        pacoteRecebido = lerPacote(soquete, endereco);
+        do
+        {
+            pacoteRecebido = lerPacote(soquete, endereco);
+        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+
+        if (!confereParidade(pacoteRecebido))
+        {
+            enviarNACKParaCliente(soquete, endereco, seq);
+            aumentaSequencia(&seq);
+        }
+
         imprimePacote(pacoteRecebido);
-    } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+    } while (!confereParidade(pacoteRecebido));
 
     nrLinha = getIntDados(pacoteRecebido, 0);
-
     printf("Linha que vai ser editada: %d\n", nrLinha);
 
-    enviarACKParaCliente(soquete, endereco, seq);
-    aumentaSequencia(&seq);
+    if (nrLinha > nrDeLinhas + 1) // erro de linha invalida
+    {
+        puts("LINHA INVALIDA");
+        enviarErroParaCLiente(soquete, endereco, seq, ERR_LI);
+        aumentaSequencia(&seq);
+        aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    } else {
+        enviarACKParaCliente(soquete, endereco, seq);
+        aumentaSequencia(&seq);
+    }
+
 
     do
     {
@@ -565,49 +648,25 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
         }
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
 
-    int nrDeLinhas = 0;
-    char c;
-    FILE *ARQUIVO = fopen(nomeArquivo, "rb");
-    if (ARQUIVO)
-    {
-        do
-        {
-            c = getc(ARQUIVO);
-            putc(c, stdout);
-            if (c == '\n')
-                nrDeLinhas++;
-        } while (c != EOF);
-    }
-    else
-    {
-        enviarErroParaCLiente(soquete, endereco, seq, ERR_AI);
-        aumentaSequencia(&seq);
-        *sequencializacao = seq;
-    }
-    fclose(ARQUIVO);
 
     printf("Numero de linhas do arquivo: %d\n", nrDeLinhas);
 
-    if (nrLinha > nrDeLinhas + 1) // erro de linha invalida
-    {
-        puts("LINHA INVALIDA");
-        enviarErroParaCLiente(soquete, endereco, seq, ERR_LI);
-    }
-    else if (nrLinha == nrDeLinhas + 1) // append no final do arquivo
+    if (nrLinha == nrDeLinhas + 1) // append no final do arquivo
     {
         puts("APPENDS");
-        char comando[100];
+        char comando[100 + tamanhoNovaLinha];
         sprintf(comando, "sed -i '%d a\\%s' %s", nrLinha - 1, novaLinha, nomeArquivo);
         system(comando);
     }
     else // substitui a linha
     {
         puts("SUBSTITUICAO");
-        char comando[100];
+        char comando[100 + tamanhoNovaLinha];
         sprintf(comando, "sed -i '%dc\\%s' %s", nrLinha, novaLinha, nomeArquivo);
         system(comando);
     }
 
+    aumentaSequencia(&seq);
     *sequencializacao = seq;
     free(nomeArquivo);
 }

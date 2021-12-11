@@ -1,13 +1,14 @@
-primeira linha
+L1 testando nack
 linha 2 nova
-a linha 3 é muito legal
-olha minha linha 4
+ta bugada
+minha linha 4 é foda
 sera que funciona?
-
+essa linha tava vazia, nao ta mais
 linha 6
-linha 7
+nova linha 8 por favor funciona
 linha 10 do tikara
-linha 9
+nova linha com * . comentario\make
 nova linha 10 do tikara
 linha11 - a nova linha
 adicionando a linha 12 com o poder da mente
+uma nova linha surge das cinzas

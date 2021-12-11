@@ -1,5 +1,5 @@
 CC     = gcc -g
-CFLAGS = -Wall
+CFLAGS = -Wall -Wextra 
 
 P1   = cliente
 P2   = servidor 
