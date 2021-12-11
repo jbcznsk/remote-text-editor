@@ -49,6 +49,9 @@ void _ls(const char *dir,int op_a,int op_l)
 int main(int argc, const char *argv[])
 {
 
+int a;
+int b;
+a = 10;
 	char *entrada = malloc(100);
 
 	fgets(entrada,100, stdin);
@@ -66,8 +69,6 @@ int main(int argc, const char *argv[])
 		printf("'%s'\n", ptr);
 		ptr = strtok(NULL, delim);
 	}
-
-
 
 	return 0;
 }

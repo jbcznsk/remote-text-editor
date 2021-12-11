@@ -492,13 +492,7 @@ void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
             conteudoAtual[i] = conteudo[contadorPacotes * 15 + i];
         }
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               CLIENT_ADDR,
-                               SERVER_ADDR,
-                               tamanhoAtual,
-                               seq,
-                               CA,
-                               conteudoAtual);
+        pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, tamanhoAtual, seq, CA, conteudoAtual);
 
         struct sockaddr_ll endereco;
         enviaPacote(pacoteEnvio, soquete, endereco);
@@ -571,7 +565,8 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
     if (!A)
     {
         enviarErroParaCLiente(soquete, endereco, seq, ERR_AI);
-        aumentaSequencia(&seq);aumentaSequencia(&seq);
+        aumentaSequencia(&seq);
+        aumentaSequencia(&seq);
         *sequencializacao = seq;
         return;
     }
@@ -620,34 +615,43 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
         aumentaSequencia(&seq);
         *sequencializacao = seq;
         return;
-    } else {
+    }
+    else
+    {
         enviarACKParaCliente(soquete, endereco, seq);
         aumentaSequencia(&seq);
     }
 
-
     do
     {
         pacoteRecebido = lerPacote(soquete, endereco);
-        imprimePacote(pacoteRecebido);
 
         if (validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq) && getTipoPacote(pacoteRecebido) == CA)
         {
-            int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
-
-            novaLinha = realloc(novaLinha, tamanhoNovaLinha + tamanhoRetorno);
-
-            for (int i = 0; i < tamanhoRetorno; i++)
+            imprimePacote(pacoteRecebido);
+            if (confereParidade(pacoteRecebido))
             {
-                novaLinha[tamanhoNovaLinha + i] = pacoteRecebido.dados[i];
-            }
-            tamanhoNovaLinha += tamanhoRetorno;
 
-            aumentaSequencia(&seq);
-            enviarACKParaServidor(soquete, endereco, seq);
+                int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
+
+                novaLinha = realloc(novaLinha, tamanhoNovaLinha + tamanhoRetorno);
+
+                for (int i = 0; i < tamanhoRetorno; i++)
+                {
+                    novaLinha[tamanhoNovaLinha + i] = pacoteRecebido.dados[i];
+                }
+                tamanhoNovaLinha += tamanhoRetorno;
+
+                aumentaSequencia(&seq);
+                enviarACKParaServidor(soquete, endereco, seq);
+            }
+            else
+            {
+                aumentaSequencia(&seq);
+                enviarNACKParaServidor(soquete, endereco, seq);
+            }
         }
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
-
 
     printf("Numero de linhas do arquivo: %d\n", nrDeLinhas);
 
@@ -675,12 +679,35 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 {
     int seq = *sequencializacao;
     struct sockaddr_ll endereco;
-    char *nomeArquivo = getDadosPacote(pacote);
     int tamanhoRestante, tamanhoAtual, qtdPacotes, contadorPacotes;
     pacote_t pacoteEnvio, pacoteRecebido;
 
     char *novaLinha = malloc(1);
     int tamanhoNovaLinha = 0;
+
+    if (!confereParidade(pacote))
+    {
+        do
+        {
+            enviarNACKParaCliente(soquete, endereco, seq);
+            aumentaSequencia(&seq);
+            do
+            {
+                pacote = lerPacote(soquete, endereco);
+            } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
+        } while (!confereParidade(pacote));
+    }
+
+    char *nomeArquivo = getDadosPacote(pacote);
+    FILE *A = fopen(nomeArquivo, "rb");
+    if (!A)
+    {
+        enviarErroParaCLiente(soquete, endereco, seq, ERR_AI);
+        aumentaSequencia(&seq);
+        aumentaSequencia(&seq);
+        *sequencializacao = seq;
+        return;
+    }
 
     enviarACKParaCliente(soquete, endereco, seq);
     aumentaSequencia(&seq);
@@ -690,22 +717,30 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
     do
     {
         pacoteRecebido = lerPacote(soquete, endereco);
-        imprimePacote(pacoteRecebido);
 
         if (validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq) && getTipoPacote(pacoteRecebido) == CA)
         {
-            int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
-
-            novaLinha = realloc(novaLinha, tamanhoNovaLinha + tamanhoRetorno);
-
-            for (int i = 0; i < tamanhoRetorno; i++)
+            imprimePacote(pacoteRecebido);
+            if (confereParidade(pacoteRecebido))
             {
-                novaLinha[tamanhoNovaLinha + i] = pacoteRecebido.dados[i];
-            }
-            tamanhoNovaLinha += tamanhoRetorno;
+                int tamanhoRetorno = getTamanhoPacote(pacoteRecebido);
 
-            aumentaSequencia(&seq);
-            enviarACKParaServidor(soquete, endereco, seq);
+                novaLinha = realloc(novaLinha, tamanhoNovaLinha + tamanhoRetorno);
+
+                for (int i = 0; i < tamanhoRetorno; i++)
+                {
+                    novaLinha[tamanhoNovaLinha + i] = pacoteRecebido.dados[i];
+                }
+                tamanhoNovaLinha += tamanhoRetorno;
+
+                aumentaSequencia(&seq);
+                enviarACKParaServidor(soquete, endereco, seq);
+            }
+            else
+            {
+                aumentaSequencia(&seq);
+                enviarNACKParaServidor(soquete, endereco, seq);
+            }
         }
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
 
@@ -715,102 +750,98 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
     // Enviar o retorno para o cliente
 
-    char *conteudo;
-    long tamanhoArquivo;
-    FILE *ARQUIVO = fopen("retornoCompilar", "rb");
+    // char *conteudo;
+    // long tamanhoArquivo;
+    // FILE *ARQUIVO = fopen("retornoCompilar", "rb");
 
-    if (ARQUIVO)
-    {
-        fseek(ARQUIVO, 0, SEEK_END);
-        tamanhoArquivo = ftell(ARQUIVO);
-        fseek(ARQUIVO, 0, SEEK_SET);
-        conteudo = malloc(tamanhoArquivo);
-        if (conteudo)
-        {
-            fread(conteudo, 1, tamanhoArquivo, ARQUIVO);
-        }
-        fclose(ARQUIVO);
-    }
+    // if (ARQUIVO)
+    // {
+    //     fseek(ARQUIVO, 0, SEEK_END);
+    //     tamanhoArquivo = ftell(ARQUIVO);
+    //     fseek(ARQUIVO, 0, SEEK_SET);
+    //     conteudo = malloc(tamanhoArquivo);
+    //     if (conteudo)
+    //     {
+    //         fread(conteudo, 1, tamanhoArquivo, ARQUIVO);
+    //     }
+    //     fclose(ARQUIVO);
+    // }
 
-    puts(conteudo);
+    // puts(conteudo);
 
-    contadorPacotes = 0;
-    tamanhoRestante = tamanhoArquivo;
-    qtdPacotes = (tamanhoArquivo / 15) + ((tamanhoArquivo % 15) ? 1 : 0);
+    // contadorPacotes = 0;
+    // tamanhoRestante = tamanhoArquivo;
+    // qtdPacotes = (tamanhoArquivo / 15) + ((tamanhoArquivo % 15) ? 1 : 0);
 
-    while (contadorPacotes < qtdPacotes)
-    {
+    // while (contadorPacotes < qtdPacotes)
+    // {
 
-        if (tamanhoRestante > 15)
-        {
-            tamanhoAtual = 15;
-            tamanhoRestante -= 15;
-        }
-        else
-        {
-            tamanhoAtual = tamanhoRestante;
-        }
+    //     if (tamanhoRestante > 15)
+    //     {
+    //         tamanhoAtual = 15;
+    //         tamanhoRestante -= 15;
+    //     }
+    //     else
+    //     {
+    //         tamanhoAtual = tamanhoRestante;
+    //     }
 
-        char *conteudoAtual = malloc(tamanhoAtual);
+    //     char *conteudoAtual = malloc(tamanhoAtual);
 
-        for (int i = 0; i < tamanhoAtual; i++)
-        {
-            conteudoAtual[i] = conteudo[contadorPacotes * 15 + i];
-        }
+    //     for (int i = 0; i < tamanhoAtual; i++)
+    //     {
+    //         conteudoAtual[i] = conteudo[contadorPacotes * 15 + i];
+    //     }
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               CLIENT_ADDR,
-                               SERVER_ADDR,
-                               tamanhoAtual,
-                               seq,
-                               CA,
-                               conteudoAtual);
+    //     pacoteEnvio = empacota(INIT_MARK,
+    //                            CLIENT_ADDR,
+    //                            SERVER_ADDR,
+    //                            tamanhoAtual,
+    //                            seq,
+    //                            CA,
+    //                            conteudoAtual);
 
-        struct sockaddr_ll endereco;
-        enviaPacote(pacoteEnvio, soquete, endereco);
-        aumentaSequencia(&seq);
+    //     struct sockaddr_ll endereco;
+    //     enviaPacote(pacoteEnvio, soquete, endereco);
+    //     aumentaSequencia(&seq);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-            imprimePacote(pacoteRecebido);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-#ifdef DEBUG
-        printf("<<< RECEBENDO PACOTE <<<\n");
-        // imprimePacote(pacote);
-        printf("=======================\n");
-#endif
+    //     do
+    //     {
+    //         pacoteRecebido = lerPacote(soquete, endereco);
+    //     } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+    //     printf("<<< RECEBENDO PACOTE <<<\n");
+    //     imprimePacote(pacote);
 
-        if (getTipoPacote(pacoteRecebido) == ACK)
-        {
-            // -> ACK  = contador++
-            puts("ACK!");
-            contadorPacotes++;
-        }
-        else
-        {
-            // -> NACK = reenvia o mesmo pacote;
-            puts("NACK!");
-            tamanhoRestante += 15;
-        }
-    }
+    //     if (getTipoPacote(pacoteRecebido) == ACK)
+    //     {
+    //         // -> ACK  = contador++
+    //         puts("ACK!");
+    //         contadorPacotes++;
+    //     }
+    //     else
+    //     {
+    //         // -> NACK = reenvia o mesmo pacote;
+    //         puts("NACK!");
+    //         tamanhoRestante += 15;
+    //     }
+    // }
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           CLIENT_ADDR,
-                           SERVER_ADDR,
-                           0,
-                           seq,
-                           FIM_TRANS,
-                           NULL);
+    // pacoteEnvio = empacota(INIT_MARK,
+    //                        CLIENT_ADDR,
+    //                        SERVER_ADDR,
+    //                        0,
+    //                        seq,
+    //                        FIM_TRANS,
+    //                        NULL);
 
-    // enviar a mensagem
-    enviaPacote(pacoteEnvio, soquete, endereco);
+    // // enviar a mensagem
+    // enviaPacote(pacoteEnvio, soquete, endereco);
 
-    system("rm retornoCompilar");
+    // system("rm retornoCompilar");
 
-    aumentaSequencia(&seq);
-    *sequencializacao = seq;
-    free(nomeArquivo);
+    // aumentaSequencia(&seq);
+    // *sequencializacao = seq;
+    // free(nomeArquivo);
 }
 
 int main()
