@@ -18,7 +18,7 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
     }
 
     struct timeval timeout;
-    timeout.tv_sec = 5;
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
     if (setsockopt(*soquete, SOL_SOCKET, SO_RCVTIMEO, &timeout,
