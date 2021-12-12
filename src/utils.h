@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <sys/time.h>
+#include <errno.h>
 
 #define INIT_MARK 0b01111110
 

@@ -29,9 +29,6 @@ void configuraInicio(int *soquete, struct sockaddr_ll *endereco)
                    sizeof timeout) < 0)
         perror("setsockopt failed\n");
 
-    //     int timeout = 10000;  // user timeout in milliseconds [ms]
-    // setsockopt (*soquete, 6, 18, (char*) &timeout, sizeof (timeout));
-
     /*dispositivo eth0*/
     memset(&ir, 0, sizeof(struct ifreq));
     // memcpy(ir.ifr_name, device, sizeof(device));
@@ -206,7 +203,10 @@ int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco)
 pacote_t lerPacote(int soquete, struct sockaddr_ll endereco)
 {
     pacote_t pacote;
-    recv(soquete, &pacote, 100, 0);
+    int retornoRecv = recv(soquete, &pacote, 100, 0);
+    if (retornoRecv == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+        pacote = empacota(INIT_MARK, NULL, NULL, 0, 0, ND_0, NULL);
+    }
     return pacote;
 }
 
@@ -270,7 +270,6 @@ int tamanhoString(char *string)
 void aumentaSequencia(int *sequencia)
 {
     *sequencia = (*sequencia + 1) % 16;
-    // printf("Seq atual: %d\n", *sequencia);
 }
 
 int validarSequencializacao(pacote_t pacote, int sequencializacao)

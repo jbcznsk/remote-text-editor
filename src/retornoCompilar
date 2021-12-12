@@ -1,0 +1,13 @@
+test.c: In function ‘main’:
+test.c:27:6: warning: unused variable ‘init_size’ [-Wunused-variable]
+   27 |  int init_size = strlen(entrada);
+      |      ^~~~~~~~~
+test.c:26:7: warning: unused variable ‘str’ [-Wunused-variable]
+   26 |  char str[] = "strtok needs to be called several times to split a string";
+      |       ^~~
+test.c:18:5: warning: unused variable ‘b’ [-Wunused-variable]
+   18 | int b;
+      |     ^
+test.c:17:5: warning: variable ‘a’ set but not used [-Wunused-but-set-variable]
+   17 | int a;
+      |     ^
