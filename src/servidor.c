@@ -76,13 +76,7 @@ void lsServidor(int soquete, int *sequencializacao)
         for (int i = 0; i < tamanhoAtual; i++)
             mensagemAtual[i] = conteudo[contadorPacotes * 15 + i];
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               CLIENT_ADDR,
-                               SERVER_ADDR,
-                               tamanhoAtual,
-                               seq,
-                               CLS,
-                               mensagemAtual);
+        pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, tamanhoAtual,  seq,  CLS, mensagemAtual);
 
         // enviar a mensagem
         struct sockaddr_ll endereco;
@@ -91,21 +85,17 @@ void lsServidor(int soquete, int *sequencializacao)
 
         // esperar o ACK ou NACK
         pacote_t pacoteRecebido;
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+
         printf("<<< RECEBENDO PACOTE <<<\n");
         imprimePacote(pacoteRecebido);
 
         if (getTipoPacote(pacoteRecebido) == ACK)
         {
-            puts("ACK!");
             contadorPacotes++;
         }
-        else if (getTipoPacote(pacoteRecebido) == NACK)
+        else if ((getTipoPacote(pacoteRecebido) == NACK) || (getTipoPacote(pacoteRecebido) == TIMEOUT))
         {
-            puts("NACK!");
             tamanhoRestante += 15;
         }
 
@@ -113,13 +103,7 @@ void lsServidor(int soquete, int *sequencializacao)
     }
 
     // enviar Fim de Transmissao
-    pacoteEnvio = empacota(INIT_MARK,
-                           CLIENT_ADDR,
-                           SERVER_ADDR,
-                           0,
-                           seq,
-                           FIM_TRANS,
-                           NULL);
+    pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 0, seq, FIM_TRANS, NULL);
 
     // enviar a mensagem
     struct sockaddr_ll endereco;
@@ -162,10 +146,8 @@ void linhaServidor(int soquete, int *sequencializacao, pacote_t pacote)
     int valida;
     do
     {
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+
         imprimePacote(pacoteRecebido);
 
         valida = confereParidade(pacoteRecebido);
@@ -227,43 +209,26 @@ void linhaServidor(int soquete, int *sequencializacao, pacote_t pacote)
             linhaAtual[i] = conteudoLinha[contadorPacotes * 15 + i];
         }
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               CLIENT_ADDR,
-                               SERVER_ADDR,
-                               tamanhoAtual,
-                               seq,
-                               CA,
-                               linhaAtual);
+        pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, tamanhoAtual, seq, CA, linhaAtual);
 
         struct sockaddr_ll endereco;
         enviaPacote(pacoteEnvio, soquete, endereco);
         aumentaSequencia(&seq);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-            imprimePacote(pacoteRecebido);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+        imprimePacote(pacoteRecebido);
 
         if (getTipoPacote(pacoteRecebido) == ACK)
         {
-            puts("ACK!");
             contadorPacotes++;
         }
-        else
+        else if (getTipoPacote(pacoteRecebido) == ACK || (getTipoPacote(pacoteRecebido) == TIMEOUT))
         {
-            puts("NACK!");
             tamanhoRestante += 15;
         }
     }
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           CLIENT_ADDR,
-                           SERVER_ADDR,
-                           0,
-                           seq,
-                           FIM_TRANS,
-                           NULL);
+    pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 0, seq, FIM_TRANS, NULL);
 
     // enviar a mensagem
     enviaPacote(pacoteEnvio, soquete, endereco);
@@ -305,10 +270,8 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
     int valida;
     do
     {
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+
         imprimePacote(pacoteRecebido);
 
         valida = confereParidade(pacoteRecebido);
@@ -369,13 +332,7 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
             linhaAtual[i] = conteudoLinha[contadorPacotes * 15 + i];
         }
 
-        pacoteEnvio = empacota(INIT_MARK,
-                               CLIENT_ADDR,
-                               SERVER_ADDR,
-                               tamanhoAtual,
-                               seq,
-                               CA,
-                               linhaAtual);
+        pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, tamanhoAtual, seq, CA, linhaAtual);
 
         struct sockaddr_ll endereco;
         enviaPacote(pacoteEnvio, soquete, endereco);
@@ -383,29 +340,21 @@ void linhasServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
         do
         {
-            pacoteRecebido = lerPacote(soquete, endereco);
+            pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
             imprimePacote(pacoteRecebido);
         } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
         if (getTipoPacote(pacoteRecebido) == ACK)
         {
-            puts("ACK!");
             contadorPacotes++;
         }
-        else
+        else if (getTipoPacote(pacoteRecebido) == ACK || (getTipoPacote(pacoteRecebido) == TIMEOUT))
         {
-            puts("NACK!");
             tamanhoRestante += 15;
         }
     }
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           CLIENT_ADDR,
-                           SERVER_ADDR,
-                           0,
-                           seq,
-                           FIM_TRANS,
-                           NULL);
+    pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 0, seq, FIM_TRANS, NULL);
 
     // enviar a mensagem
     enviaPacote(pacoteEnvio, soquete, endereco);
@@ -434,7 +383,7 @@ void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
             enviarNACKParaCliente(soquete, endereco, seq);
             do
             {
-                pacote = lerPacote(soquete, endereco);
+                pacote = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
             } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
             aumentaSequencia(&seq);
         } while (!confereParidade(pacote));
@@ -507,33 +456,23 @@ void verServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
         do
         {
-            pacoteRecebido = lerPacote(soquete, endereco);
+            pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
         } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
         printf("<<< RECEBENDO PACOTE <<<\n");
         imprimePacote(pacote);
         printf("=======================\n");
 
         if (getTipoPacote(pacoteRecebido) == ACK)
-        {
-            // -> ACK  = contador++
-            puts("ACK!");
+        { 
             contadorPacotes++;
         }
-        else
+        else if (getTipoPacote(pacoteRecebido) == ACK || (getTipoPacote(pacoteRecebido) == TIMEOUT))
         {
-            // -> NACK = reenvia o mesmo pacote;
-            puts("NACK!");
             tamanhoRestante += 15;
         }
     }
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           CLIENT_ADDR,
-                           SERVER_ADDR,
-                           0,
-                           seq,
-                           FIM_TRANS,
-                           NULL);
+    pacoteEnvio = empacota(INIT_MARK, CLIENT_ADDR, SERVER_ADDR, 0, seq, FIM_TRANS, NULL);
 
     // enviar a mensagem
     enviaPacote(pacoteEnvio, soquete, endereco);
@@ -560,10 +499,9 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
         {
             enviarNACKParaCliente(soquete, endereco, seq);
             aumentaSequencia(&seq);
-            do
-            {
-                pacote = lerPacote(soquete, endereco);
-            } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
+
+            pacote = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+
         } while (!confereParidade(pacote));
     }
 
@@ -597,10 +535,8 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
     // Recebe o pacote com a linha
     do
     {
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
 
         if (!confereParidade(pacoteRecebido))
         {
@@ -631,7 +567,7 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
     do
     {
-        pacoteRecebido = lerPacote(soquete, endereco);
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
 
         if (validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq) && getTipoPacote(pacoteRecebido) == CA)
         {
@@ -650,12 +586,12 @@ void editarServidor(int soquete, int *sequencializacao, pacote_t pacote)
                 tamanhoNovaLinha += tamanhoRetorno;
 
                 aumentaSequencia(&seq);
-                enviarACKParaServidor(soquete, endereco, seq);
+                enviarACKParaCliente(soquete, endereco, seq);
             }
             else
             {
                 aumentaSequencia(&seq);
-                enviarNACKParaServidor(soquete, endereco, seq);
+                enviarNACKParaCliente(soquete, endereco, seq);
             }
         }
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
@@ -697,10 +633,9 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
         {
             enviarNACKParaCliente(soquete, endereco, seq);
             aumentaSequencia(&seq);
-            do
-            {
-                pacote = lerPacote(soquete, endereco);
-            } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, seq)));
+
+            pacote = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
+
         } while (!confereParidade(pacote));
     }
 
@@ -722,7 +657,7 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
 
     do
     {
-        pacoteRecebido = lerPacote(soquete, endereco);
+        pacoteRecebido = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, seq);
 
         if (validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq) && getTipoPacote(pacoteRecebido) == CA)
         {
@@ -740,12 +675,12 @@ void compilarServidor(int soquete, int *sequencializacao, pacote_t pacote)
                 tamanhoNovaLinha += tamanhoRetorno;
 
                 aumentaSequencia(&seq);
-                enviarACKParaServidor(soquete, endereco, seq);
+                enviarACKParaCliente(soquete, endereco, seq);
             }
             else
             {
                 aumentaSequencia(&seq);
-                enviarNACKParaServidor(soquete, endereco, seq);
+                enviarNACKParaCliente(soquete, endereco, seq);
             }
         }
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
@@ -773,7 +708,7 @@ int main()
         // Aqui eu sempre vou ter um pacote válido (falta a paridade mas fodase)
         do
         {
-            pacote = lerPacote(soquete, endereco);
+            pacote = lerPacote(soquete, SERVER_ADDR, CLIENT_ADDR, sequencializacao);
         } while (!(validarLeituraServidor(pacote) && validarSequencializacao(pacote, sequencializacao)));
         printf("<<< RECEBENDO PACOTE <<<\n");
         imprimePacote(pacote);

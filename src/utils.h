@@ -34,7 +34,7 @@
 #define LINHAS    0b0100 //  4
 #define EDIT      0b0101 //  5
 #define COMPILAR  0b0110 //  6
-#define ND_0      0b0111 //  7
+#define TIMEOUT   0b0111 //  7
 #define ACK       0b1000 //  8
 #define NACK      0b1001 //  9
 #define LIF       0b1010 // 10
@@ -83,7 +83,7 @@ char calculaParidade(pacote_t pacote);
 int confereParidade(pacote_t pacote);
 
 int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco);
-pacote_t lerPacote(int soquete, struct sockaddr_ll endereco);
+pacote_t lerPacote(int soquete, int destino, int origem, int sequencializacao);
 
 pacote_t empacota(char MI, char enderecoDestino, char enderecoOrigem, char tamanho, char sequencia, char tipo, char dados[15]);
 
@@ -98,6 +98,7 @@ void enviarNACKParaServidor(int soquete, struct sockaddr_ll endereco, int sequen
 
 int tamanhoString(char *string);
 void aumentaSequencia(int *sequencia);
+void diminuiSequencia(int *sequencia);
 int validarSequencializacao(pacote_t pacote, int sequencializacao);
 
 int validarLeituraCliente(pacote_t pacote);

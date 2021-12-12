@@ -30,22 +30,12 @@ void cdCliente(int soquete, int *sequencializacao, char *diretorio)
     pacote_t pacoteEnvio, pacoteRecebido;
     int seq = *sequencializacao;
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           SERVER_ADDR,
-                           CLIENT_ADDR,
-                           tamanhoString(diretorio),
-                           seq,
-                           CD,
-                           diretorio);
+    pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(diretorio), seq, CD, diretorio);
 
     struct sockaddr_ll endereco;
     enviaPacote(pacoteEnvio, soquete, endereco);
 
-    do
-    {
-        pacoteRecebido = lerPacote(soquete, endereco);
-    } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-
+    pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
     if (getTipoPacote(pacoteRecebido) == ACK)
     {
@@ -62,6 +52,10 @@ void cdCliente(int soquete, int *sequencializacao, char *diretorio)
         lancarErro(getIntDados(pacoteRecebido, 0));
         aumentaSequencia(&seq);
     }
+    else if (getTipoPacote(pacoteRecebido) == TIMEOUT)
+    {
+        cdCliente(soquete, &seq, diretorio);
+    }
 
     *sequencializacao = seq;
 }
@@ -73,25 +67,23 @@ void lsCliente(int soquete, int *sequencializacao)
     char *retornoLS = malloc(1);
     int tamanhoLS = 0;
 
-    pacoteEnvio = empacota(INIT_MARK,
-                           SERVER_ADDR,
-                           CLIENT_ADDR,
-                           0,
-                           seq,
-                           LS,
-                           NULL);
+    pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 0, seq, LS, NULL);
 
     struct sockaddr_ll endereco;
     enviaPacote(pacoteEnvio, soquete, endereco);
 
     do
     {
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
-        if (getTipoPacote(pacoteRecebido) == CLS)
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
+
+
+        if (getTipoPacote(pacoteRecebido) == NACK){
+            aumentaSequencia(&seq);
+            lsCliente(soquete, &seq);
+            return;
+        }
+        else if (getTipoPacote(pacoteRecebido) == CLS)
         {
             aumentaSequencia(&seq);
 
@@ -110,6 +102,9 @@ void lsCliente(int soquete, int *sequencializacao)
             {
                 enviarNACKParaServidor(soquete, endereco, seq);
             }
+        } else if (getTipoPacote(pacoteRecebido) == TIMEOUT){
+            lsCliente(soquete, &seq);
+            return;
         }
 
     } while (getTipoPacote(pacoteRecebido) != FIM_TRANS);
@@ -135,10 +130,7 @@ void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha
     pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(arquivo), seq, LINHA, arquivo);
     enviaPacote(pacoteEnvio, soquete, endereco);
 
-    do
-    {
-        pacoteRecebido = lerPacote(soquete, endereco);
-    } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+    pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
     if (getTipoPacote(pacoteRecebido) == ACK)
     {
@@ -153,12 +145,11 @@ void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha
             pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 4, seq, LIF, dados);
             enviaPacote(pacoteEnvio, soquete, endereco);
 
-            do
-            {
-                pacoteRecebido = lerPacote(soquete, endereco);
-            } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-            aumentaSequencia(&seq);
-        } while (getTipoPacote(pacoteRecebido) == NACK);
+            pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
+
+            if (getTipoPacote(pacoteRecebido) != TIMEOUT ) aumentaSequencia(&seq);
+
+        } while (getTipoPacote(pacoteRecebido) == NACK || getTipoPacote(pacoteRecebido) == TIMEOUT);
 
         if (!(getTipoPacote(pacoteRecebido) == FIM_TRANS))
         {
@@ -180,7 +171,7 @@ void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha
 
                 do
                 {
-                    pacoteRecebido = lerPacote(soquete, endereco);
+                    pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
                 } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
 
                 aumentaSequencia(&seq);
@@ -206,6 +197,10 @@ void linhaCliente(int soquete, int *sequencializacao, char *arquivo, int nrLinha
         aumentaSequencia(&seq);
         linhaCliente(soquete, &seq, arquivo, nrLinha);
     }
+    else if (getTipoPacote(pacoteRecebido) == TIMEOUT)
+    {
+        linhaCliente(soquete, &seq, arquivo, nrLinha);
+    }
     else if (getTipoPacote(pacoteRecebido) == ERRO)
     {
         int tipoErro = getIntDados(pacoteRecebido, 0);
@@ -229,10 +224,7 @@ void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaI
     pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(arquivo), seq, LINHAS, arquivo);
     enviaPacote(pacoteEnvio, soquete, endereco);
 
-    do
-    {
-        pacoteRecebido = lerPacote(soquete, endereco);
-    } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+    pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
     if (getTipoPacote(pacoteRecebido) == ACK)
     {
@@ -249,12 +241,11 @@ void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaI
             pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 8, seq, LIF, dados);
             enviaPacote(pacoteEnvio, soquete, endereco);
 
-            do
-            {
-                pacoteRecebido = lerPacote(soquete, endereco);
-            } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
-            aumentaSequencia(&seq);
-        } while (getTipoPacote(pacoteRecebido) == NACK);
+            pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
+
+            if (getTipoPacote(pacoteRecebido) != TIMEOUT ) aumentaSequencia(&seq);
+
+        } while (getTipoPacote(pacoteRecebido) == NACK || getTipoPacote(pacoteRecebido) == TIMEOUT);
 
         if (!(getTipoPacote(pacoteRecebido) == FIM_TRANS))
         {
@@ -274,10 +265,7 @@ void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaI
                     enviarACKParaServidor(soquete, endereco, seq);
                 }
 
-                do
-                {
-                    pacoteRecebido = lerPacote(soquete, endereco);
-                } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+                pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
                 aumentaSequencia(&seq);
 
@@ -300,6 +288,10 @@ void linhasCliente(int soquete, int *sequencializacao, char *arquivo, int linhaI
     else if (getTipoPacote(pacoteRecebido) == NACK)
     {
         aumentaSequencia(&seq);
+        linhasCliente(soquete, &seq, arquivo, linhaInicial, linhaFinal);
+    }
+    else if (getTipoPacote(pacoteRecebido) == TIMEOUT)
+    {
         linhasCliente(soquete, &seq, arquivo, linhaInicial, linhaFinal);
     }
     else if (getTipoPacote(pacoteRecebido) == ERRO)
@@ -329,12 +321,12 @@ void verCliente(int soquete, int *sequencializacao, char *arquivo)
         enviaPacote(pacoteEnvio, soquete, endereco);
         aumentaSequencia(&seq);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
-    } while (getTipoPacote(pacoteRecebido) == NACK);
+        if (getTipoPacote(pacoteRecebido) == TIMEOUT) diminuiSequencia(&seq);
+
+
+    } while (getTipoPacote(pacoteRecebido) == NACK || getTipoPacote(pacoteRecebido) == TIMEOUT);
 
     if (getTipoPacote(pacoteRecebido) == ERRO)
     {
@@ -363,7 +355,7 @@ void verCliente(int soquete, int *sequencializacao, char *arquivo)
 
             do
             {
-                pacoteRecebido = lerPacote(soquete, endereco);
+                pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
             } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
             aumentaSequencia(&seq);
         }
@@ -390,14 +382,11 @@ void editarCliente(int soquete, int *sequencializacao, char *arquivo, char *cont
         pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, tamanhoString(arquivo), seq, EDIT, arquivo);
         enviaPacote(pacoteEnvio, soquete, endereco);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
-        aumentaSequencia(&seq);
+        if (getTipoPacote(pacoteRecebido) != TIMEOUT) aumentaSequencia(&seq);
 
-    } while (getTipoPacote(pacoteRecebido) == NACK);
+    } while ((getTipoPacote(pacoteRecebido) == NACK) || (getTipoPacote(pacoteRecebido) == TIMEOUT));
 
     if (getTipoPacote(pacoteRecebido) == ERRO)
     {
@@ -417,14 +406,11 @@ void editarCliente(int soquete, int *sequencializacao, char *arquivo, char *cont
         pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, 4, seq, LIF, dados);
         enviaPacote(pacoteEnvio, soquete, endereco);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
-        aumentaSequencia(&seq);
+        if (getTipoPacote(pacoteRecebido) != TIMEOUT) aumentaSequencia(&seq);
 
-    } while (getTipoPacote(pacoteRecebido) == NACK);
+    } while (getTipoPacote(pacoteRecebido) == NACK|| getTipoPacote(pacoteRecebido) == TIMEOUT) ;
 
     if (getTipoPacote(pacoteRecebido) == ERRO)
     {
@@ -459,14 +445,11 @@ void editarCliente(int soquete, int *sequencializacao, char *arquivo, char *cont
         enviaPacote(pacoteEnvio, soquete, endereco);
         aumentaSequencia(&seq);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
         if (getTipoPacote(pacoteRecebido) == ACK)
             contadorPacotes++;
-        else
+        else if (getTipoPacote(pacoteRecebido) == NACK || (getTipoPacote(pacoteRecebido) == TIMEOUT))
             tamanhoRestante += 15;
     }
 
@@ -494,14 +477,11 @@ int compilarCliente(int soquete, int *sequencializacao, char *arquivo, char **ar
         pacoteEnvio = empacota(INIT_MARK, SERVER_ADDR, CLIENT_ADDR, strlen(arquivo), seq, COMPILAR, arquivo);
         enviaPacote(pacoteEnvio, soquete, endereco);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraCliente(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
-        aumentaSequencia(&seq);
+        if (getTipoPacote(pacoteRecebido) != TIMEOUT) aumentaSequencia(&seq);
 
-    } while (getTipoPacote(pacoteRecebido) == NACK);
+    } while ((getTipoPacote(pacoteRecebido) == NACK) || (getTipoPacote(pacoteRecebido) == TIMEOUT));
 
     if (getTipoPacote(pacoteRecebido) == ERRO)
     {
@@ -544,10 +524,7 @@ int compilarCliente(int soquete, int *sequencializacao, char *arquivo, char **ar
         enviaPacote(pacoteEnvio, soquete, endereco);
         aumentaSequencia(&seq);
 
-        do
-        {
-            pacoteRecebido = lerPacote(soquete, endereco);
-        } while (!(validarLeituraServidor(pacoteRecebido) && validarSequencializacao(pacoteRecebido, seq)));
+        pacoteRecebido = lerPacote(soquete, CLIENT_ADDR, SERVER_ADDR, seq);
 
         if (getTipoPacote(pacoteRecebido) == ACK)
             contadorPacotes++;

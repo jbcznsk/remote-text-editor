@@ -200,13 +200,22 @@ int enviaPacote(pacote_t pacote, int soquete, struct sockaddr_ll endereco)
     return send(soquete, &pacote, 100, 0);
 }
 
-pacote_t lerPacote(int soquete, struct sockaddr_ll endereco)
-{
+pacote_t lerPacote(int soquete, int destino, int origem, int sequencializacao)
+{ 
+    int retornoRecv;
     pacote_t pacote;
-    int retornoRecv = recv(soquete, &pacote, 100, 0);
-    if (retornoRecv == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)){
-        pacote = empacota(INIT_MARK, NULL, NULL, 0, 0, ND_0, NULL);
-    }
+    do
+        {
+            retornoRecv = recv(soquete, &pacote, 100, 0);
+
+            if (retornoRecv == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+                pacote = empacota(INIT_MARK, destino, origem, 0, sequencializacao, TIMEOUT, NULL);
+                break;
+            }
+
+        } while (!(getEnderecoDestino(pacote) == destino) || !validarSequencializacao(pacote, sequencializacao));
+
+    // imprimePacote(pacote);
     return pacote;
 }
 
@@ -270,6 +279,12 @@ int tamanhoString(char *string)
 void aumentaSequencia(int *sequencia)
 {
     *sequencia = (*sequencia + 1) % 16;
+}
+
+void diminuiSequencia(int *sequencia)
+{
+    *sequencia = (*sequencia - 1);
+    if (*sequencia == -1) *sequencia = 15;
 }
 
 int validarSequencializacao(pacote_t pacote, int sequencializacao)
